@@ -357,44 +357,57 @@ finalizes on these.**
    to add placeholder estimates in a future iteration.
 
 7. **MOE subsidy amount derived, not sourced directly.** `data/tuition-fees.ts`
-   doesn't carry a separate "TG subsidy received" field — this spec derives
-   it as `NonGrant rate − subsidised (IS) rate`. This is a reasonable
-   approximation of "the total TG amount received" but has not been verified
-   against an actual MOE Tuition Grant disbursement statement. Also, "any
-   GST subsidy" (which MOE's own page explicitly adds to its LD base) is not
-   separately modelled or added — another likely (small) under-count.
+   doesn't carry a separate "Grant received" field — this spec derives it as
+   `NonGrant rate − subsidised (IS) rate`. Per the signed MOE Tuition Grant
+   Agreement (Recital 2 / Clause 1(1)-(2)), the actual liquidated-damages
+   base ("the Grant") is Tuition Grant + GST Subsidy combined — and since
+   `data/tuition-fees.ts`'s international-student columns are already
+   GST-inclusive, this derived gap already captures both components without
+   double-counting (see `docs/policy-moe-tgs.md` section 3.2 for the full
+   reasoning — no separate GST addition should be layered on). This remains
+   **a derived approximation, not the literal officially-published Grant
+   figure** for a given cohort/year (Clause 1(3) confirms MOE separately
+   publishes the actual amount per academic year on its Tuition Grant
+   website) — still worth cross-checking against that published figure if
+   precision matters more than MVP speed.
 
-8. **MOE pro-rata mechanism assumed to mirror NUS's**, applying the same
-   days-served/total-bond-days formula (here: whole-years) independently to
-   the MOE clawback, using MOE's own 3-year bond length as the denominator.
-   Per `docs/policy-moe-tgs.md` section 2.4, this is a **medium-to-low
-   confidence assumption** — no official MOE primary source found in this
-   research pass states the exact pro-rata formula with the same precision
-   NUS's Fourth Schedule para 3 does. **This is one of the most important
-   open questions for legal/product review before shipping a number to
-   users.**
+8. **MOE's pro-rata reduction mechanism is now confirmed** (Clause 3(4)):
+   reduce the amount owed by completed **months worked / Bond Period**
+   (months, not days — NUS's Fourth Schedule para 3 uses days). Since this
+   MVP already collapses everything to whole-year granularity, the
+   months-vs-days distinction doesn't change the algorithm in section 5
+   above. The remaining open point is that Clause 3(4) frames this as
+   discretionary ("the Government **may**... at its sole discretion"), not
+   automatic — mirroring NUS's own "may be reduced" phrasing in Fourth
+   Schedule para 3. **The calculator models this reduction as if it applies
+   automatically/by default in both cases** — a deliberate product decision
+   to keep the tool usable (an "it depends on the Government's discretion"
+   answer isn't useful to a user), not a legal guarantee that either MOE or
+   NUS would actually grant the reduction in a real case. Worth confirming
+   this framing with the product owner.
 
-9. **MOE/NUS interest compounding convention discrepancy unresolved.** As
-   flagged in `docs/policy-moe-tgs.md` section 2.2, MOE's own summary page
-   says compounding is "at the end of each academic year" (no pro-ration
-   mentioned), matching NUS's convention — but a secondary-sourced excerpt
-   attributed to the actual TG Agreement mentions compounding "with
-   pro-ration commencing from the first day of the month in which the
-   Course commences," which could mean something subtly different for the
-   first partial period. This spec adopts the simpler no-pro-ration,
-   whole-year convention (matching NUS) for consistency and implementability,
-   but this is an **assumption, not a confirmed fact**, and is the second
-   most important open question — **recommend a follow-up direct read of
-   the two MOE PDFs that failed to fetch in this research pass**
-   (`tgonline.moe.gov.sg/docs/G-LiquidatedDamagesBuy-OutDischarge.pdf` and
-   `tgonline.moe.gov.sg/docs/TG-SampleAgreement.pdf`), or running the worked
-   example through MOE's own LD Estimator tool (`go.gov.sg/grantsense`) as a
-   sanity check.
+9. **MOE's interest compounding convention is confirmed to genuinely differ
+   from NUS's — this is a known, deliberate simplification, not an
+   unresolved guess.** The signed MOE Tuition Grant Agreement's First
+   Schedule para A(ii) states interest compounds "with pro-ration
+   commencing from the first day of the month in which the Course
+   commences" — i.e. MOE **does** pro-rate the first partial period, unlike
+   NUS's explicit "without pro-ration... regardless of the date" (Fourth
+   Schedule para 1). Because this MVP has no calendar dates at all (product
+   owner's decision), it cannot replicate MOE's month-level pro-ration and
+   instead applies the same whole-year, no-pro-ration convention to both
+   sides. **This means the MOE clawback figure is a known approximation
+   that will typically differ slightly (in either direction, depending on
+   which calendar month the Course actually commenced and disbursements
+   were incurred in) from the real, month-precise MOE figure.** Recommend
+   running the worked example through MOE's official LD Estimator
+   (`go.gov.sg/grantsense`) as a sanity check on the size of this
+   divergence, per `docs/policy-moe-tgs.md` section 6.
 
-10. **No cap modelled on the MOE side.** Absence of a found cap in public
-    MOE sources is treated as "no cap applies," but this is an
-    absence-of-evidence result, not a confirmed absence-of-cap. See
-    `docs/policy-moe-tgs.md` section 2.3.
+10. **No cap on the MOE side — now confirmed, not inferred.** The signed
+    agreement's First Schedule (paras A-D2, the full liquidated-damages
+    schedule) contains no cap clause at all, in contrast to NUS's explicit
+    Fourth Schedule para (2) caps. See `docs/policy-moe-tgs.md` section 3.5.
 
 11. **NUS cap treated as static.** Clause 9 lets NUS unilaterally raise the
     $262k/$295k cap by written notice at any time. The calculator hard-codes
@@ -404,8 +417,12 @@ finalizes on these.**
     periodically re-verified the same way `data/tuition-fees.ts` is (per
     that file's own header comment about manual annual re-verification).
 
-12. **Legal/recovery costs (Fourth Schedule para 4) and overdue-payment
-    interest (Fourth Schedule paras 5-6 / MOE equivalent) are entirely
-    excluded**, per the task's explicit instruction — these apply only after
-    a formal demand and subsequent default, which is a different question
-    than "what would I owe today."
+12. **Legal/recovery costs (Fourth Schedule para 4 / First Schedule para C)
+    and overdue-payment interest (Fourth Schedule paras 5-6 / First Schedule
+    paras D1-D2) are entirely excluded**, per the task's explicit
+    instruction — these apply only after a formal demand and subsequent
+    default, which is a different question than "what would I owe today."
+    Now confirmed (per `docs/policy-moe-tgs.md` section 3.7) that MOE's and
+    NUS's overdue-interest mechanisms are textually identical (3-month
+    compounded SORA + 4.5%, same reference-date windows) — standardized
+    government boilerplate, not two separate mechanisms to model.

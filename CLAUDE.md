@@ -49,11 +49,14 @@ manually-maintained fee dataset, run entirely in the browser.
   worked example (section 7) and its B=6 sanity check.
 
 The MOE-side calculation (`moeClawback` in `src/calc/payback.ts`) is kept in
-its own function, separate from the NUS calculation, because it is a
-best-effort public-research reconstruction of MOE's formula rather than a
-figure sourced from a signed agreement — see `docs/policy-moe-tgs.md` for the
-confidence level behind it. It's structured to be easy to swap out once a
-verified source is available.
+its own function, separate from the NUS calculation, so it stays easy to
+isolate and update independently of the NUS side. Its formula is confirmed
+against a signed MOE Tuition Grant Agreement (see `docs/policy-moe-tgs.md`
+section 3) — the one confirmed simplification is that the real agreement
+pro-rates interest to the calendar month a course commenced, while this
+calculator is deliberately calendar-date-free and uses whole-year compounding
+for both NUS and MOE (see `docs/payback-formula-spec.md` section 5 and
+assumption #9).
 
 ## Important: no personal data in this repository
 

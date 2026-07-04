@@ -105,10 +105,15 @@ function nusDisbursement(
  * (NonGrant - subsidised rate), per spec section 3.2.
  *
  * ponytail: kept in its own function (not inlined into the NUS calc) per
- * product-owner instruction — the MOE formula is a best-effort public-research
- * assumption (docs/policy-moe-tgs.md secs 2.2/2.4) that will be swapped out
- * once a signed Tuition Grant Agreement is available. Everything downstream
- * of this function and moeClawback() is the part expected to change.
+ * product-owner instruction, so the MOE side stays easy to isolate and swap.
+ * The formula itself is now confirmed against the signed MOE Tuition Grant
+ * Agreement (docs/policy-moe-tgs.md section 3, "Grant" = Tuition Grant + GST
+ * Subsidy, already captured by the NonGrant-minus-subsidised-rate gap without
+ * double-counting). One confirmed, deliberate divergence remains: the real
+ * agreement pro-rates the first compounding period to the calendar month the
+ * course commenced, while this whole-year, no-calendar-dates MVP does not
+ * (see docs/payback-formula-spec.md section 5 and assumption #9) — so the
+ * MOE figure is a known whole-year approximation, not an unresolved guess.
  */
 function moeDisbursement(
   cohort: AdmissionCohort,
