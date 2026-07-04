@@ -174,6 +174,33 @@ function moeClawback(
   return { beforeProRata, afterProRata };
 }
 
+export interface NoBondBaselines {
+  /** D years at the subsidised (Tuition Grant) rate, no interest, no bond —
+   * "what if you'd never taken S&T but still got the ordinary MOE TG". */
+  skippedTopUp: number;
+  /** D years at the full unsubsidised rate, no interest, no bond —
+   * "what if you'd had no Tuition Grant at all". */
+  noTuitionGrant: number;
+}
+
+/** Reference baselines for the payback-trajectory chart (Task 2). Nominal
+ * sums only — no interest, no bond math — so these deliberately don't reuse
+ * nusLiquidatedDamages/moeClawback, they're a different (non-compounding)
+ * quantity by definition. */
+export function noBondBaselines(
+  cohort: AdmissionCohort,
+  category: FeeCategory,
+  feeTier: FeeTier,
+  degree: DegreeType,
+): NoBondBaselines {
+  const D = disbursementYears(degree);
+  const row = TUITION_FEES[cohort][category];
+  return {
+    skippedTopUp: row[feeTier] * D,
+    noTuitionGrant: row.NonGrant * D,
+  };
+}
+
 /** Full calculation, spec sections 4-7. Returns both the headline total and
  * the full per-year breakdown for the advanced/audit view. */
 export function calculatePayback(inputs: CalculatorInputs): PaybackResult {

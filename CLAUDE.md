@@ -37,6 +37,9 @@ manually-maintained fee dataset, run entirely in the browser.
   Sections 4-7 define the exact formulas, worked example, and expected
   numbers; section 8 lists every judgment call made where the source material
   was silent or ambiguous.
+- `docs/tuition-fees-source.md` — the source document, edition, column
+  definitions, and major-to-fee-category scope backing `data/tuition-fees.ts`.
+  Consult this before touching the fee dataset or the major list.
 - `data/tuition-fees.ts` — hand-maintained tuition fee + allowance dataset
   (`TUITION_FEES`, `ST_SCHOLARSHIP_ALLOWANCES`), keyed by admission cohort /
   fee category / fee tier. Must be manually re-verified whenever NUS
@@ -47,6 +50,10 @@ manually-maintained fee dataset, run entirely in the browser.
   patch the code in a way that silently diverges from the spec.
 - `src/calc/payback.test.ts` — the one regression test, pinned to the spec's
   worked example (section 7) and its B=6 sanity check.
+- `src/calc/majors.ts` — the major -> fee-category mapping (`MAJOR_GROUPS`)
+  backing the "select your major" dropdown. Source of truth is
+  `docs/tuition-fees-source.md`'s scope section; do not add majors/faculties
+  not listed as S&T-eligible there.
 
 The MOE-side calculation (`moeClawback` in `src/calc/payback.ts`) is kept in
 its own function, separate from the NUS calculation, so it stays easy to

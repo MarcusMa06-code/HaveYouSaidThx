@@ -45,6 +45,16 @@
   border-radius: 6px;
   background: var(--bg);
   color: var(--text-h);
+  width: 100%;
+}
+
+/* ponytail: narrow viewports get less horizontal room for the closed-state
+ * select text (e.g. "Int'l Student — ASEAN passport"); a smaller font is
+ * the one-line fix, no layout restructuring needed. */
+@media (max-width: 400px) {
+  .field select {
+    font-size: 14px;
+  }
 }
 
 .field input[type="range"] {
@@ -119,9 +129,17 @@
   margin: 0 0 16px;
 }
 
-.advanced .table-scroll {
-  overflow-x: auto;
-  margin-bottom: 24px;
+.statement-section {
+  margin-bottom: 28px;
+}
+
+.statement-section h3 {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
 }
 
 .advanced table {
@@ -147,13 +165,19 @@
   font-weight: 500;
   color: var(--text-muted);
   font-size: 12px;
+  border-bottom: 1px solid var(--text-muted);
+}
+
+.statement-summary {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
 }
 
 .subtotals {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px 16px;
-  margin: 0;
+  margin: 0 0 16px;
   font-size: 14px;
 }
 
@@ -167,11 +191,116 @@
   text-align: right;
 }
 
-.subtotals .total-row {
+.subtotals .subtotal-row {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.statement-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-top: 2px solid var(--accent);
+  padding-top: 14px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-h);
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
+}
+
+.statement-total span:last-child {
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-card h2 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.chart-card .advanced-meta {
+  margin-bottom: 16px;
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-axis-label {
+  fill: var(--text-muted);
+  font-size: 20px;
+}
+
+.chart-line {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.chart-point {
+  fill: var(--accent);
+}
+
+.chart-baseline {
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  fill: none;
+}
+
+.chart-baseline-1 {
+  stroke: var(--text);
+}
+
+.chart-baseline-2 {
+  stroke: var(--text-muted);
+}
+
+.chart-baseline-label {
+  font-size: 19px;
+}
+
+.chart-baseline-label-1 {
+  fill: var(--text);
+}
+
+.chart-baseline-label-2 {
+  fill: var(--text-muted);
+}
+
+.chart-crossing {
+  fill: var(--bg);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.chart-crossing-label {
+  fill: var(--text-muted);
+  font-size: 18px;
+}
+
+.chart-bar {
+  fill: var(--accent-bg);
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+
+.chart-bar-standout {
+  fill: var(--accent);
+}
+
+.chart-diff-line {
+  stroke: var(--text);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+.chart-diff-point {
+  fill: var(--text);
 }
 
 .page-footer {
