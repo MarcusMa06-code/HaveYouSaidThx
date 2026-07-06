@@ -26,33 +26,33 @@ interface MarginalChartProps {
   totals: number[]; // index = B, 0..6 (SGD)
   /** Formats an SGD figure to the selected currency, no decimals (chart labels). */
   fmt: (sgd: number) => string;
-  /** Translated "Year {n}" axis label. */
-  yearLabel: (n: number) => string;
+  /** Translated "Years {a}–{b}" axis label. */
+  rangeLabel: (a: number, b: number) => string;
 }
 
-/** Bar chart of marginal savings (first difference), styled as the two-tier
- * step function it now actually is: interest freezes at graduation (spec
- * section 2), so payback(B) is a frozen total times a linear pro-rata
- * factor, and the marginal saving per extra bond year is CONSTANT while
- * MOE's 3-year bond is still active, then drops to a lower constant once
- * MOE's bond is fully discharged. Two distinct colors/shades mark the two
- * tiers directly on the bars — the step is visually obvious without a
- * caption spelling it out. */
-function MarginalChart({ totals, fmt, yearLabel }: MarginalChartProps) {
-  const marginal = totals.slice(0, 6).map((v, b) => v - totals[b + 1]); // index = step B->B+1
-  const transitionIndex = 2; // B=2 -> B=3 step: MOE's bond fully discharges here
+/** Two-bar chart of the per-year marginal saving. Because interest freezes at
+ * graduation (spec section 2), payback(B) is a frozen total times a linear
+ * pro-rata factor, so the saving per extra bond year takes exactly TWO values:
+ * a higher constant for years 1–3 (while MOE's 3-year bond is still active)
+ * and a lower constant for years 4–6 (after MOE's bond is fully discharged).
+ * The old 6-bar version drew each value three times over — collapsing to one
+ * bar per tier removes that redundancy. */
+function MarginalChart({ totals, fmt, rangeLabel }: MarginalChartProps) {
+  // Each tier's per-year saving (any year within a tier is identical). Tier 1:
+  // the B=0->1 step (years 1-3). Tier 2: the B=3->4 step (years 4-6).
+  const tiers = [
+    { value: totals[0] - totals[1], from: 1, to: 3, cls: "chart-bar-tier-high" },
+    { value: totals[3] - totals[4], from: 4, to: 6, cls: "chart-bar-tier-low" },
+  ];
 
   const w = CHART_W;
   const h = 260;
-  // ponytail: symmetric left/right padding — this chart has no y-axis label
-  // column, so there's nothing to reserve extra left space for. Equal padding
-  // keeps the bars centered in the card.
   const pad = { top: 44, right: 20, bottom: 40, left: 20 };
   const pw = w - pad.left - pad.right;
   const ph = h - pad.top - pad.bottom;
-  const n = marginal.length;
+  const n = tiers.length;
   const bandW = pw / n;
-  const maxBar = Math.max(...marginal) * 1.15;
+  const maxBar = Math.max(...tiers.map((t) => t.value)) * 1.15;
 
   const barX = (i: number) => pad.left + i * bandW + bandW * 0.2;
   const barW = bandW * 0.6;
@@ -61,39 +61,28 @@ function MarginalChart({ totals, fmt, yearLabel }: MarginalChartProps) {
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="chart" role="img"
-      aria-label="How much you save per extra year you stay bonded, shown as a two-tier step">
+      aria-label="Per-year saving, higher for years 1-3 then lower for years 4-6">
       <line x1={pad.left} x2={w - pad.right} y1={yBar(0)} y2={yBar(0)} className="chart-grid" />
-      {marginal.map((v, i) => (
+      {tiers.map((tier, i) => (
         <rect
           key={i}
           x={barX(i)}
-          y={yBar(v)}
+          y={yBar(tier.value)}
           width={barW}
-          height={yBar(0) - yBar(v)}
-          className={i <= transitionIndex ? "chart-bar chart-bar-tier-high" : "chart-bar chart-bar-tier-low"}
+          height={yBar(0) - yBar(tier.value)}
+          className={`chart-bar ${tier.cls}`}
         />
       ))}
-      {marginal.map((v, i) => (
-        <text key={i} x={labelX(i)} y={yBar(v) - 8} className="chart-bar-value" textAnchor="middle">
-          {fmt(v)}
+      {tiers.map((tier, i) => (
+        <text key={i} x={labelX(i)} y={yBar(tier.value) - 8} className="chart-bar-value" textAnchor="middle">
+          {fmt(tier.value)}
         </text>
       ))}
-      {marginal.map((_, i) => (
+      {tiers.map((tier, i) => (
         <text key={i} x={labelX(i)} y={h - 6} className="chart-axis-label" textAnchor="middle">
-          {yearLabel(i + 1)}
+          {rangeLabel(tier.from, tier.to)}
         </text>
       ))}
-
-      {/* transition marker between the two tiers, at the true midpoint
-          between this band and the next (not just half the gap after this
-          bar, which sat too close to transitionIndex's bar/label) */}
-      <line
-        x1={pad.left + (transitionIndex + 1) * bandW}
-        x2={pad.left + (transitionIndex + 1) * bandW}
-        y1={pad.top}
-        y2={yBar(0)}
-        className="chart-tier-divider"
-      />
     </svg>
   );
 }
@@ -325,7 +314,7 @@ function App() {
       <section className="card chart-card">
         <h2>{t("chartTitle")}</h2>
         <p className="advanced-meta">{t("chartCaption")}</p>
-        <MarginalChart totals={totals} fmt={moneyShort} yearLabel={(n) => t("chartYear", n)} />
+        <MarginalChart totals={totals} fmt={moneyShort} rangeLabel={(a, b) => t("chartRange", a, b)} />
       </section>
 
       <button

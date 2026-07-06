@@ -25,14 +25,14 @@ export const FALLBACK_RATES: Rates = {
   HKD: 6.08,
 };
 
-/** Locale + code shown alongside the "$" so USD/HKD/SGD (all "$") aren't
- * ambiguous. Intl already prints "US$" / "HK$" via currencyDisplay:"narrowSymbol"
- * fallback, but we force a clear prefix ourselves for consistency. */
-const LOCALE: Record<Currency, string> = {
-  SGD: "en-SG",
-  USD: "en-US",
-  CNY: "zh-CN",
-  HKD: "en-HK",
+/** Explicit currency symbols. USD/SGD/HKD all use "$", so we force a
+ * disambiguating prefix (US$/S$/HK$) rather than relying on Intl, which
+ * prints a bare "$" for SGD in en-SG. CNY uses ¥. */
+const SYMBOL: Record<Currency, string> = {
+  SGD: "S$",
+  USD: "US$",
+  CNY: "¥",
+  HKD: "HK$",
 };
 
 /** Convert an SGD amount and format it in the target currency. `maxFrac` 0 for
@@ -44,11 +44,11 @@ export function formatMoney(
   maxFrac = 2,
 ): string {
   const converted = sgdAmount * (rates[currency] ?? 1);
-  return converted.toLocaleString(LOCALE[currency], {
-    style: "currency",
-    currency,
+  const num = converted.toLocaleString("en-US", {
+    minimumFractionDigits: maxFrac,
     maximumFractionDigits: maxFrac,
   });
+  return `${SYMBOL[currency]}${num}`;
 }
 
 const CACHE_KEY = "hyst.fxRates";

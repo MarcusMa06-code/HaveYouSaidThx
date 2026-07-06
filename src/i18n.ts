@@ -50,8 +50,8 @@ const en = {
 
   chartTitle: "How much you save per extra year you stay bonded",
   chartCaption:
-    "Each bar shows how much less you'd owe if you served one more bond year. The savings stay the same for the first few years (while MOE's bond is still active), then drop to a smaller constant amount once MOE's portion is fully paid off.",
-  chartYear: (n: number) => `Year ${n}`,
+    "Each bar is how much one more year of service knocks off what you'd owe. It's the same for every year while MOE's bond is still active (years 1–3), then drops to a smaller amount once MOE's portion is fully paid off (years 4–6).",
+  chartRange: (a: number, b: number) => `Years ${a}–${b}`,
 
   breakdownShow: "Show calculation breakdown",
   breakdownHide: "Hide calculation breakdown",
@@ -106,8 +106,8 @@ const zhHans: Dict = {
 
   chartTitle: "每多服务一年服务期能为你省下多少",
   chartCaption:
-    "每根柱状条显示：若你多服务一年服务期，需偿还的金额会减少多少。最初几年（教育部的服务期仍在进行时）省下的金额保持不变，待教育部的部分偿清后，便降至一个较低的固定金额。",
-  chartYear: (n) => `第 ${n} 年`,
+    "每根柱状条代表：多服务一年能让你少还多少。教育部的服务期仍在进行时（第 1–3 年）每年省下的金额相同；待教育部的部分偿清后（第 4–6 年），每年省下的金额降至较低的固定值。",
+  chartRange: (a, b) => `第 ${a}–${b} 年`,
 
   breakdownShow: "显示计算明细",
   breakdownHide: "隐藏计算明细",
@@ -160,8 +160,8 @@ const zhHant: Dict = {
 
   chartTitle: "每多服務一年服務期能為你省下多少",
   chartCaption:
-    "每根柱狀條顯示：若你多服務一年服務期，需償還的金額會減少多少。最初幾年（教育部的服務期仍在進行時）省下的金額保持不變，待教育部的部分償清後，便降至一個較低的固定金額。",
-  chartYear: (n) => `第 ${n} 年`,
+    "每根柱狀條代表：多服務一年能讓你少還多少。教育部的服務期仍在進行時（第 1–3 年）每年省下的金額相同；待教育部的部分償清後（第 4–6 年），每年省下的金額降至較低的固定值。",
+  chartRange: (a, b) => `第 ${a}–${b} 年`,
 
   breakdownShow: "顯示計算明細",
   breakdownHide: "隱藏計算明細",
