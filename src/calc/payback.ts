@@ -20,17 +20,17 @@ import {
 export type FeeTier = "ISAsean" | "ISOther";
 
 export type DegreeType =
-  | "Bachelor"
   | "BachelorHonours"
   | "DoubleDegreeSingleHonours"
   | "DoubleDegreeDoubleHonours";
 
-/** Nominal programme duration (years) per spec section 1. */
-const NOMINAL_DURATION: Record<DegreeType, number> = {
-  Bachelor: 3,
-  BachelorHonours: 4,
-  DoubleDegreeSingleHonours: 4.5,
-  DoubleDegreeDoubleHonours: 5,
+/** Nominal programme duration in semesters, per spec section 1 (S&T
+ * allowances/tuition are disbursed per-semester, so semesters are the
+ * natural unit — see NOMINAL_SEMESTERS below). */
+const NOMINAL_SEMESTERS: Record<DegreeType, number> = {
+  BachelorHonours: 8,
+  DoubleDegreeSingleHonours: 9,
+  DoubleDegreeDoubleHonours: 10,
 };
 
 const NUS_BOND_YEARS = 6;
@@ -44,10 +44,20 @@ function isDoubleDegree(degree: DegreeType): boolean {
   );
 }
 
-/** D = disbursement years, spec section 2: 4.5 nominal years rounds up to 5
- * whole disbursement/compounding years (spec section 8, assumption #5). */
-function disbursementYears(degree: DegreeType): number {
-  return Math.ceil(NOMINAL_DURATION[degree]);
+/** Nominal (full-length) semester count for a degree type — the default and
+ * max value of the semestersCompleted input (spec section 1). */
+export function nominalSemesters(degree: DegreeType): number {
+  return NOMINAL_SEMESTERS[degree];
+}
+
+/** Derive (D, hasPartialFinalSemester) from semesters completed `S`, spec
+ * section "Early-graduation slider": fullYears = floor(S/2), D = ceil(S/2).
+ * A odd `S` means the final disbursement year is only a half-year. */
+function disbursementYearsFromSemesters(S: number): {
+  D: number;
+  hasPartialFinalSemester: boolean;
+} {
+  return { D: Math.ceil(S / 2), hasPartialFinalSemester: S % 2 !== 0 };
 }
 
 export interface CalculatorInputs {
@@ -57,6 +67,9 @@ export interface CalculatorInputs {
   degree: DegreeType;
   /** Bond years completed since graduation, integer 0-6 (spec section 1). */
   bondYearsCompleted: number;
+  /** Semesters of study completed (1..nominalSemesters(degree)); drives the
+   * disbursement-year count D, with a halved final year for odd values. */
+  semestersCompleted: number;
 }
 
 /** One study-year's line-item breakdown, for the advanced/audit view. */
@@ -82,12 +95,16 @@ export interface PaybackResult {
   total: number;
 }
 
-/** NUS-side annual disbursement for study-year i (spec section 3.1). */
+/** NUS-side annual disbursement for study-year i (spec section 3.1).
+ * `isPartialFinalYear` halves the RECURRING amounts (tuition, living,
+ * accommodation) for a final semester-only year — the one-time computer/
+ * settling-in allowances are always paid in full in year 1 regardless. */
 function nusDisbursement(
   i: number,
   cohort: AdmissionCohort,
   category: FeeCategory,
   feeTier: FeeTier,
+  isPartialFinalYear: boolean,
 ): number {
   const tuition = TUITION_FEES[cohort][category][feeTier];
   const {
@@ -98,7 +115,8 @@ function nusDisbursement(
   } = ST_SCHOLARSHIP_ALLOWANCES;
 
   const oneTime = i === 1 ? computerAllowanceOneTime + settlingInAllowanceOneTime : 0;
-  return tuition + livingAllowancePerYear + accommodationAllowancePerYear + oneTime;
+  const recurring = tuition + livingAllowancePerYear + accommodationAllowancePerYear;
+  return (isPartialFinalYear ? recurring / 2 : recurring) + oneTime;
 }
 
 /** MOE-side annual disbursement for study-year i: the TG subsidy gap
@@ -119,9 +137,11 @@ function moeDisbursement(
   cohort: AdmissionCohort,
   category: FeeCategory,
   feeTier: FeeTier,
+  isPartialFinalYear: boolean,
 ): number {
   const row = TUITION_FEES[cohort][category];
-  return row.NonGrant - row[feeTier];
+  const gap = row.NonGrant - row[feeTier];
+  return isPartialFinalYear ? gap / 2 : gap;
 }
 
 /** NUS Liquidated Damages, spec section 4. */
@@ -132,10 +152,11 @@ function nusLiquidatedDamages(
   category: FeeCategory,
   feeTier: FeeTier,
   degree: DegreeType,
+  hasPartialFinalSemester: boolean,
 ): { beforeCap: number; afterCap: number; afterProRata: number; cap: number } {
   let total = 0;
   for (let i = 1; i <= D; i++) {
-    const d = nusDisbursement(i, cohort, category, feeTier);
+    const d = nusDisbursement(i, cohort, category, feeTier, i === D && hasPartialFinalSemester);
     const periods = D - i;
     total += d * Math.pow(1 + INTEREST_RATE, periods);
   }
@@ -158,10 +179,11 @@ function moeClawback(
   cohort: AdmissionCohort,
   category: FeeCategory,
   feeTier: FeeTier,
+  hasPartialFinalSemester: boolean,
 ): { beforeProRata: number; afterProRata: number } {
   let total = 0;
   for (let i = 1; i <= D; i++) {
-    const d = moeDisbursement(cohort, category, feeTier);
+    const d = moeDisbursement(cohort, category, feeTier, i === D && hasPartialFinalSemester);
     const periods = D - i;
     total += d * Math.pow(1 + INTEREST_RATE, periods);
   }
@@ -174,48 +196,22 @@ function moeClawback(
   return { beforeProRata, afterProRata };
 }
 
-export interface NoBondBaselines {
-  /** D years at the subsidised (Tuition Grant) rate, no interest, no bond —
-   * "what if you'd never taken S&T but still got the ordinary MOE TG". */
-  skippedTopUp: number;
-  /** D years at the full unsubsidised rate, no interest, no bond —
-   * "what if you'd had no Tuition Grant at all". */
-  noTuitionGrant: number;
-}
-
-/** Reference baselines for the payback-trajectory chart (Task 2). Nominal
- * sums only — no interest, no bond math — so these deliberately don't reuse
- * nusLiquidatedDamages/moeClawback, they're a different (non-compounding)
- * quantity by definition. */
-export function noBondBaselines(
-  cohort: AdmissionCohort,
-  category: FeeCategory,
-  feeTier: FeeTier,
-  degree: DegreeType,
-): NoBondBaselines {
-  const D = disbursementYears(degree);
-  const row = TUITION_FEES[cohort][category];
-  return {
-    skippedTopUp: row[feeTier] * D,
-    noTuitionGrant: row.NonGrant * D,
-  };
-}
-
 /** Full calculation, spec sections 4-7. Returns both the headline total and
  * the full per-year breakdown for the advanced/audit view. */
 export function calculatePayback(inputs: CalculatorInputs): PaybackResult {
-  const { cohort, category, feeTier, degree, bondYearsCompleted } = inputs;
-  const D = disbursementYears(degree);
+  const { cohort, category, feeTier, degree, bondYearsCompleted, semestersCompleted } = inputs;
+  const { D, hasPartialFinalSemester } = disbursementYearsFromSemesters(semestersCompleted);
   const B = bondYearsCompleted;
 
-  const nus = nusLiquidatedDamages(D, B, cohort, category, feeTier, degree);
-  const moe = moeClawback(D, B, cohort, category, feeTier);
+  const nus = nusLiquidatedDamages(D, B, cohort, category, feeTier, degree, hasPartialFinalSemester);
+  const moe = moeClawback(D, B, cohort, category, feeTier, hasPartialFinalSemester);
 
   const years: YearBreakdown[] = [];
   for (let i = 1; i <= D; i++) {
     const periods = D - i;
-    const nusD = nusDisbursement(i, cohort, category, feeTier);
-    const moeD = moeDisbursement(cohort, category, feeTier);
+    const isPartialFinalYear = i === D && hasPartialFinalSemester;
+    const nusD = nusDisbursement(i, cohort, category, feeTier, isPartialFinalYear);
+    const moeD = moeDisbursement(cohort, category, feeTier, isPartialFinalYear);
     years.push({
       year: i,
       periods,

@@ -10,23 +10,34 @@ made are listed explicitly in section 8.
 
 ## 1. MVP scope and inputs
 
-**No exact calendar dates are modelled.** The calculator takes exactly two
-inputs:
+**No exact calendar dates are modelled.** The calculator takes three inputs:
 
-1. **Degree type** (a fixed choice of 4), which maps to a nominal programme
-   duration per Handbook para 4:
+1. **Degree type** (a fixed choice of 3 — S&T-eligible majors are all
+   standard 4-year-Honours-track programmes under NUS's current degree
+   structure; the non-Honours "Bachelor" (Pass, 3-year) classification is
+   only a fallback outcome for under-performing students within that same
+   track, not a programme anyone enrolls into, so it isn't offered as a
+   selectable option), which maps to a nominal programme duration in
+   semesters per Handbook para 4:
 
-   | Degree type | Nominal duration (years) |
-   |---|---|
-   | Bachelor | 3 |
-   | Bachelor with Honours | 4 |
-   | Double Degree, single Honours | 4.5 |
-   | Double Degree, double Honours | 5 |
+   | Degree type | Nominal duration (semesters) | (years) |
+   |---|---|---|
+   | Bachelor with Honours | 8 | 4 |
+   | Double Degree, single Honours | 9 | 4.5 |
+   | Double Degree, double Honours | 10 | 5 |
 
-   The MVP assumes the scholar **completes in exactly this nominal duration**
-   — no early/late graduation modelling.
+2. **Semesters of study completed** — an integer slider from **1 to the
+   selected degree's nominal semester count**, defaulting to that nominal
+   count (i.e. "completed the programme on time"). This models
+   early graduation at semester granularity, since NUS/SNT allowances and
+   tuition are disbursed per-semester (half the annual amount each
+   semester, confirmed in the S&T Handbook). Changing degree type clamps
+   this value down to the new degree's nominal max if it would otherwise
+   exceed it. See section 2 for how this derives the disbursement-year
+   count `D`, and section 8 assumption #5 (now resolved) for how a partial
+   final semester is handled.
 
-2. **Bond years completed** — an integer slider from **0 to 6**. This
+3. **Bond years completed** — an integer slider from **0 to 6**. This
    represents **time elapsed since graduation only**. The calculator assumes
    the scholar has **already fully graduated** and is somewhere within the
    6-year post-graduation bond window. **Mid-study withdrawal is explicitly
@@ -90,12 +101,25 @@ approximated in whole-year units as follows:**
 
 Concretely, define:
 
-- `D` = nominal programme duration in whole years, rounded **up** to the
-  nearest integer for the purposes of counting *disbursement years* (e.g.
-  4.5-year Double Degree Programme = 5 disbursement years: years 1-4 at a
-  full year each, year 5 being the final half-year, still treated as one
-  full disbursement/compounding year — see section 8 for this rounding
-  assumption).
+- `S` = semesters of study completed, the slider input (1..nominal semester
+  count for the selected degree — see section 1). Derive:
+
+  ```
+  fullYears = floor(S / 2)
+  hasPartialFinalSemester = (S is odd)
+  D = ceil(S / 2)      // disbursement-year count fed into the algorithms below
+  ```
+
+  `D` disbursement/compounding years result: years `1..D`, where year `D` is
+  a genuine half-year (only the RECURRING amounts — tuition, living
+  allowance, accommodation allowance — are halved for that year) whenever
+  `hasPartialFinalSemester` is true; the one-time computer ($1,750) and
+  settling-in ($200) allowances are unaffected, since they're always paid in
+  full in year 1 semester 1 regardless of how the programme ends. This
+  replaces the earlier fixed-per-degree-type `D` lookup and handles the
+  Double-Degree-single-Honours 9-semester (4.5-year) case **exactly**
+  (`D=5` with a halved final year) rather than the earlier rounding-up
+  approximation — see section 8, assumption #5 (now resolved).
 - `B` = bond years completed (0-6), the slider input. **`B` no longer
   affects the compounding calculation at all** — it only affects the
   linear pro-rata reduction applied after interest is computed (sections
@@ -123,16 +147,24 @@ amounts are summed and which cap/bond-length applies.
 
 ### 3.1 NUS side (Liquidated Damages base, per `docs/policy-snt.md` section 4)
 
-For each study-year `i` = 1..`D`:
+For each study-year `i` = 1..`D`, let `isPartialFinalYear = (i == D &&
+hasPartialFinalSemester)` (section 2):
 
 ```
 nusDisbursement(i) =
-    tuitionFee(cohort, category, feeTier)      // Third Schedule (c) — annual
-  + livingAllowancePerYear                      // Third Schedule (d) — annual, $6,000
-  + accommodationAllowancePerYear               // Third Schedule (f) — annual, $5,408 (AY25/26 figure)
-  + (i == 1 ? settlingInAllowanceOneTime : 0)   // Third Schedule (e) — one-time, $200
-  + (i == 1 ? computerAllowanceOneTime : 0)     // Third Schedule (h) — one-time, $1,750
+    (isPartialFinalYear ? 0.5 : 1) * (
+        tuitionFee(cohort, category, feeTier)     // Third Schedule (c) — annual
+      + livingAllowancePerYear                     // Third Schedule (d) — annual, $6,000
+      + accommodationAllowancePerYear               // Third Schedule (f) — annual, $5,408 (AY25/26 figure)
+    )
+  + (i == 1 ? settlingInAllowanceOneTime : 0)   // Third Schedule (e) — one-time, $200, always paid in full
+  + (i == 1 ? computerAllowanceOneTime : 0)     // Third Schedule (h) — one-time, $1,750, always paid in full
 ```
+
+Only the recurring tuition/living/accommodation amounts are halved for a
+partial final semester — the one-time allowances are paid in full in year 1
+semester 1 regardless of how the programme ends, so they're outside the
+`isPartialFinalYear` scaling.
 
 `tuitionFee`, `livingAllowancePerYear`, `accommodationAllowancePerYear`,
 `computerAllowanceOneTime`, and `settlingInAllowanceOneTime` are sourced from
@@ -148,16 +180,18 @@ placeholder numbers for them.
 
 ### 3.2 MOE side (clawback base, per `docs/policy-moe-tgs.md` section 3.2)
 
-For each study-year `i` = 1..`D`:
+For each study-year `i` = 1..`D`, with the same `isPartialFinalYear` as 3.1:
 
 ```
-moeDisbursement(i) = tuitionGrantSubsidy(cohort, category, feeTier, i)
+moeDisbursement(i) = (isPartialFinalYear ? 0.5 : 1) * tuitionGrantSubsidy(cohort, category, feeTier)
 ```
 
 Where `tuitionGrantSubsidy` is the gap MOE is covering — i.e. the difference
 between the `NonGrant` (full unsubsidised) rate and the international
 student's actual subsidised rate (`ISAsean` or `ISOther`) in
-`data/tuition-fees.ts` for that cohort/category/year.
+`data/tuition-fees.ts` for that cohort/category/year. MOE's subsidy-gap
+amount is halved for the same partial final year as the NUS side, since it's
+still a per-semester-disbursed tuition subsidy.
 
 **Confirmed by the signed MOE Tuition Grant Agreement** (Recital 2 / Clause
 1(1)-(2)): "the Grant" that forms the liquidated-damages base is **Tuition
@@ -174,6 +208,10 @@ MOE's Tuition Grant website) rather than a literal sourced figure — see
 section 8, assumption 7.
 
 ## 4. NUS Liquidated Damages algorithm
+
+`D` here is the derived disbursement-year count from section 2 (`D =
+ceil(S / 2)`), not a fixed per-degree constant — `nusDisbursement(i)` already
+folds in the partial-final-year halving from section 3.1 where applicable.
 
 ```
 function nusLiquidatedDamages(D, B, cohort, category, feeTier):
@@ -256,11 +294,12 @@ cap (or absence of one) is applied independently before summing.
 
 **Scholar profile:** Bachelor with Honours (Engineering → `DesignAndEngineering`
 fee category), International Student ("Other" nationality tier, i.e.
-`ISOther`), admitted **AY2025/2026**, single-degree programme, **0 bond years
-completed** (calculating "what would I owe if I broke the bond the moment I
-graduate").
+`ISOther`), admitted **AY2025/2026**, single-degree programme, full 8
+nominal semesters completed (on-time graduation, no early graduation), **0
+bond years completed** (calculating "what would I owe if I broke the bond
+the moment I graduate").
 
-- `D` = 4 (Bachelor Honours, Handbook para 4)
+- `S` = 8 (full nominal Bachelor Honours duration) → `D` = ceil(8/2) = 4, no partial final semester
 - `B` = 0
 - Fee figures from `data/tuition-fees.ts`, AY2025/2026, `DesignAndEngineering`, `ISOther`: tuition = **$20,000/year**; `NonGrant` = **$39,200/year**
 - Allowances (`ST_SCHOLARSHIP_ALLOWANCES`): living = $6,000/yr, accommodation = $5,408/yr, computer = $1,750 one-time, settling-in = $200 one-time
@@ -397,14 +436,17 @@ finalizes on these.**
    most overseas periods, all of which per Clause 6(c)-(e) do NOT count
    toward bond discharge in reality. Flagged as future work.
 
-5. **Fractional programme durations (4.5 years) rounded up to 5 disbursement
-   years.** For the Double-Degree-single-Honours case (`D` = 4.5 nominal
-   years), the model treats this as **5 whole disbursement/compounding
-   years** rather than modelling a genuine half-year. This likely
-   over-counts one half-year of allowances/tuition slightly. An alternative
-   (halving the final year's disbursement) was considered but rejected for
-   MVP simplicity, given the "no calendar dates" constraint. Flagged for
-   product owner review — may want the halved-final-year approach instead.
+5. **[RESOLVED] Fractional programme durations (4.5 years) are now handled
+   exactly via the semester-granularity early-graduation input, not rounded
+   up.** The Double-Degree-single-Honours case (9 nominal semesters, 4.5
+   nominal years) previously rounded `D` up to 5 whole disbursement years,
+   over-counting one half-year of recurring allowances/tuition. The
+   semesters-completed input (section 1) now derives `D = ceil(S / 2)` and
+   halves the final year's RECURRING disbursement whenever `S` is odd
+   (section 2-3), so the 4.5-year case is computed exactly — `D=5` with a
+   genuinely halved final year — rather than approximated. This also means
+   any degree/duration can be modelled at half-year precision generally, not
+   just the one previously-flagged case.
 
 6. **Airfare, medical/insurance coverage, and "other approved
    fees/expenses" (Third Schedule a, b, g, i) excluded from the NUS

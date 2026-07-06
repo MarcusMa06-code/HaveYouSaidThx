@@ -49,11 +49,38 @@ manually-maintained fee dataset, run entirely in the browser.
   the legal source material first, then update this file to match — don't
   patch the code in a way that silently diverges from the spec.
 - `src/calc/payback.test.ts` — the one regression test, pinned to the spec's
-  worked example (section 7) and its B=6 sanity check.
+  worked example (section 7) and its B=6 sanity check, plus the
+  semester-granularity early-graduation cases (S=7 partial-semester, S=9
+  double-degree-exact).
 - `src/calc/majors.ts` — the major -> fee-category mapping (`MAJOR_GROUPS`)
   backing the "select your major" dropdown. Source of truth is
   `docs/tuition-fees-source.md`'s scope section; do not add majors/faculties
   not listed as S&T-eligible there.
+
+## Current scope notes (keep in sync with `docs/payback-formula-spec.md`)
+
+- **Degree types**: only `BachelorHonours`, `DoubleDegreeSingleHonours`, and
+  `DoubleDegreeDoubleHonours` are modelled. Non-Honours "Bachelor" (Pass,
+  3-year) was fully removed — it's a fallback classification outcome for
+  under-performing students, not a programme anyone enrolls into, so it was
+  deleted from the `DegreeType` union, not just hidden in the UI.
+- **ASEAN nationality tier**: `ISAsean` stays fully intact in `FeeTier`,
+  `data/tuition-fees.ts`, and all calculation code — only the `<select>`
+  option in `App.tsx` is UI-disabled (`(not yet supported)`), pending
+  product work to re-enable it. Do not remove the underlying data/type.
+- **Study duration is semester-granular**, not a fixed per-degree constant.
+  `CalculatorInputs.semestersCompleted` (`S`) replaces the old fixed
+  `disbursementYears(degree)` lookup; `D = ceil(S / 2)` derives the
+  disbursement-year count, with the final year's recurring amounts (tuition,
+  living, accommodation) halved when `S` is odd. See
+  `docs/payback-formula-spec.md` sections 1-2 for the full derivation.
+- **No "payback trajectory over the bond" chart.** It was removed once the
+  interest-freeze fix made the takeaway close enough to "taking S&T is
+  usually still a good deal" that the comparison chart wasn't worth keeping.
+  The marginal-savings-per-bond-year chart (a clean two-tier step, since
+  interest freezes at graduation) is the only chart left; keep its dev/audit
+  "breakdown" statement view and `calculatePayback` itself untouched by that
+  removal.
 
 The MOE-side calculation (`moeClawback` in `src/calc/payback.ts`) is kept in
 its own function, separate from the NUS calculation, so it stays easy to
