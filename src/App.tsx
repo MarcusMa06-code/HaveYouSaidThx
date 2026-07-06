@@ -196,9 +196,13 @@ function App() {
           </div>
         </div>
         <p className="subtitle">{t("subtitle")}</p>
-        <p className="fx-note">
-          {ratesState.date ? t("ratesAsOf", ratesState.date) : t("ratesApprox")}
-        </p>
+        {/* Only meaningful when a non-SGD currency is selected — SGD is the
+            native calculation currency, so no exchange rate is involved. */}
+        {currency !== "SGD" && (
+          <p className="fx-note">
+            {ratesState.date ? t("ratesAsOf", ratesState.date) : t("ratesApprox")}
+          </p>
+        )}
       </header>
 
       <section className="card">
