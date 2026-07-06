@@ -22,6 +22,20 @@ describe("calculatePayback — spec section 7 worked example", () => {
     expect(Math.abs(result.total - 237_467.18)).toBeLessThan(EPS * 100);
   });
 
+  // Intermediate bond-year check: interest freezes at graduation (confirmed
+  // via direct NUS/MOE correspondence — see docs/payback-formula-spec.md
+  // section 2), so B only affects the linear pro-rata reduction, not the
+  // compounding exponent. A test that only checked B=0 and B=6 would NOT
+  // have caught a regression where B was mistakenly added back into the
+  // compounding exponent, since B=0 and B=6 happen to produce the same
+  // result either way — this assertion at B=3 closes that gap.
+  it("matches the worked example at B=3 (MOE bond fully discharged)", () => {
+    const result = calculatePayback({ ...baseInputs, bondYearsCompleted: 3 });
+    expect(result.nusAfterProRata).toBeCloseTo(74_179.99, 2);
+    expect(result.moeAfterProRata).toBe(0);
+    expect(result.total).toBeCloseTo(74_179.99, 2);
+  });
+
   it("both obligations are exactly 0 once the full 6-year bond is served (B=6)", () => {
     const result = calculatePayback({ ...baseInputs, bondYearsCompleted: 6 });
     expect(result.nusAfterProRata).toBe(0);

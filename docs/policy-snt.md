@@ -111,6 +111,25 @@ Key features of the interest mechanic, read literally from the clause text:
   expense was actually incurred.
 - The Scholar and Sureties are **jointly and severally liable**.
 
+> **Confirmed via direct correspondence with NUS/MOE, 2026-07-04: compounding
+> stops at graduation, not at the point of bond-break.** The clause text above
+> ("up to and including the date of termination of the Agreement") reads,
+> taken in isolation, as though interest could keep compounding all the way
+> through the post-graduation bond-service period until the scholar actually
+> buys out. The product owner asked NUS/MOE directly, and the official
+> response was: "The compounding interest applies during studies and will
+> stop upon completion of studies/graduation or withdrawal/termination of
+> studies/scholarship/Tuition Grant. After graduation, if there is bond
+> period served and scholar wishes to buy out the remaining bond(s), the
+> liquidated damages will be reduced proportionately based on bond served."
+> This confirms interest **freezes at graduation**; the post-graduation bond
+> period only feeds the separate linear pro-rata reduction in para (3) below,
+> never additional compounding. The earlier reading (continued accrual
+> through the bond period) was a reasonable inference from the text alone,
+> but is now known to be incorrect — see
+> `docs/payback-formula-spec.md` section 2 and section 8 assumption #13 for
+> the full correction history.
+
 **Fourth Schedule, para (2) — the cap:**
 
 > SGD 262,000 if the SCHOLAR is in a single-degree programme.

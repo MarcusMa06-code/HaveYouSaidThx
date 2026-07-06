@@ -68,10 +68,14 @@ function PaybackChart({ totals, curve, curveStep, baseline1, baseline2 }: Paybac
 
   // ponytail: the underlying formula (nusLiquidatedDamages/moeClawback) is
   // continuous in B — sampling it densely (not just at the 7 integer bond
-  // years) gives a genuinely smooth, still-exact curve, not a visual
-  // smoothing trick. MOE's pro-rata fully discharges at B=3, a real slope
-  // kink — dense sampling shows that correctly instead of a false 7-point
-  // straight-line segment.
+  // years) gives a genuinely exact curve, not a visual smoothing trick.
+  // Interest freezes at graduation (confirmed via direct NUS/MOE
+  // correspondence, see docs/payback-formula-spec.md sec 2), so each side's
+  // total is a frozen amount times a linear reduction factor — the true
+  // shape is piecewise-linear, with a real slope kink where MOE's pro-rata
+  // fully discharges at B=3. Dense sampling still helps render the two
+  // straight segments (and NUS's separate, longer decline to B=6) cleanly,
+  // rather than a coarse 7-point polyline looking jagged at typical chart width.
   const linePath = curve.map((v, i) => `${i === 0 ? "M" : "L"} ${x(i * curveStep)} ${y(v)}`).join(" ");
 
   const cross1 = findCrossing(totals, baseline1);
@@ -370,8 +374,9 @@ function App() {
         <p className="advanced-meta">
           Bars: how much less you'd owe for each extra year served (payback(B)
           − payback(B+1)). Line: the change in that marginal saving step to
-          step — the jump at 2&rarr;3 is MOE's 3-year bond fully discharging,
-          while NUS's separate 6-year bond is still only half served.
+          step — the sharp jump at 2&rarr;3 is a piecewise-linear kink where
+          MOE's 3-year bond fully discharges in one step, while NUS's
+          separate 6-year bond keeps declining at its own steady linear rate.
         </p>
         <MarginalChart totals={totals} />
       </section>

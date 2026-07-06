@@ -88,6 +88,28 @@ In respect of each amount of the disbursed monies, the interest:
   the last day of the relevant 12-month interval in which the Course is
   completed, whichever is earlier.
 
+> **Confirmed via direct correspondence with NUS/MOE, 2026-07-04:** read in
+> isolation, "(iii) ceases to accrue on the date of termination of the
+> Agreement" could plausibly mean interest keeps compounding all the way
+> through the post-graduation bond-service period, since "termination"
+> could be read as the moment the scholar actually buys out the bond
+> (potentially years after graduation). The product owner asked MOE
+> directly whether this was the case. Official response: "The compounding
+> interest applies during studies and will stop upon completion of
+> studies/graduation or withdrawal/termination of studies/scholarship/
+> Tuition Grant. After graduation, if there is bond period served and
+> scholar wishes to buy out the remaining bond(s), the liquidated damages
+> will be reduced proportionately based on bond served." This confirms "the
+> last day of the relevant 12-month interval in which the Course is
+> completed" is the operative freeze point in the ordinary case (not
+> "date of termination" read as "date of bond buy-out") — **interest stops
+> accruing at graduation**, and the post-graduation bond period feeds only
+> the separate pro-rata reduction (section 3.6 below), not further
+> compounding. The prior reading (compounding continues through the bond
+> period) was a reasonable inference from the clause text alone but is now
+> known to be incorrect — see `docs/payback-formula-spec.md` section 2 and
+> section 8 assumption #13 for the full correction history.
+
 **This is a confirmed, deliberate divergence from NUS's convention, not an
 open question.** NUS's Fourth Schedule para 1 is explicit that its 10%
 interest compounds "without pro-ration... regardless of the date such

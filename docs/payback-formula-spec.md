@@ -40,19 +40,53 @@ deliberate MVP simplification (see section 8).
 
 ## 2. Compounding-period rule
 
+> **Confirmed via direct correspondence with NUS/MOE, 2026-07-04:** the
+> product owner directly asked the university how the 10% compound interest
+> interacts with the post-graduation bond period. Official response:
+>
+> > "MOE: The compounding interest applies during studies and will stop upon
+> > completion of studies/graduation or withdrawal/termination of
+> > studies/scholarship/Tuition Grant. After graduation, if there is bond
+> > period served and scholar wishes to buy out the remaining bond(s), the
+> > liquidated damages will be reduced proportionately based on bond
+> > served."
+>
+> This confirms **interest compounds only during the study years and
+> freezes at the point of graduation.** There is no additional compounding
+> during the bond-service period — after graduation, the frozen
+> (principal + interest) total is simply reduced by the linear pro-rata
+> factor (bond years served / total bond length). This applies to both the
+> NUS side and the MOE side: the question was asked about the combined bond
+> structure, and both agreements use identical boilerplate compounding
+> language, so there is no reason to think they diverge on this point.
+>
+> Two other points were confirmed in the same response, already consistent
+> with what this spec and the code implement (no formula change needed —
+> noted here for corroboration):
+> 1. "Yes, both bonds can be served concurrently. Bond service will start
+>    after graduation." — matches section 1's concurrent 6yr(NUS)/3yr(MOE)
+>    modelling.
+> 2. "If scholar has served 3 years, scholar can be discharged from the
+>    Tuition Grant bond and will have 3 years of scholarship bond left to
+>    serve." — matches the MOE-fully-discharges-at-`B=3` behaviour in
+>    section 5.
+
 **No calendar dates exist in this model, so "academic year" compounding is
 approximated in whole-year units as follows:**
 
 > **Assumption:** each year's disbursement is treated as a lump sum paid at
 > the end of that academic year of study, and it compounds once per
-> completed academic year (NUS's 10%) or once per completed year of the
-> bond obligation elapsed (for MOE's 10%), from the end of the disbursement
-> year through to the "break point" (the point in time the user is asking
-> "how much would I owe today"), with no day-level pro-ration. Every
-> elapsed year — whether a study year or a bond year — is treated as a full
-> compounding period, consistent with both NUS's Fourth Schedule para 1
-> ("without pro-ration... regardless of the date") and MOE's stated
-> "compounded at the end of each academic year" convention.
+> completed academic year (NUS's 10%, MOE's 10%) from the end of the
+> disbursement year through to the end of the programme (graduation),
+> with no day-level pro-ration, and then **freezes** — no further
+> compounding accrues during the post-graduation bond-service period, per
+> the confirmed university response above. Every elapsed *study* year is
+> treated as a full compounding period, consistent with both NUS's Fourth
+> Schedule para 1 ("without pro-ration... regardless of the date") and
+> MOE's stated "compounded at the end of each academic year" convention —
+> but bond years elapsed after graduation are **not** compounding periods
+> at all; they only feed the separate linear pro-rata reduction in
+> sections 4-5 below.
 
 Concretely, define:
 
@@ -62,19 +96,22 @@ Concretely, define:
   full year each, year 5 being the final half-year, still treated as one
   full disbursement/compounding year — see section 8 for this rounding
   assumption).
-- `B` = bond years completed (0-6), the slider input.
-- **Break point** = `D` years after programme start, plus `B` years (i.e.
-  the point in elapsed-year-count time at which we're asking "how much is
-  owed").
+- `B` = bond years completed (0-6), the slider input. **`B` no longer
+  affects the compounding calculation at all** — it only affects the
+  linear pro-rata reduction applied after interest is computed (sections
+  4-5).
+- **Break point for compounding purposes** = graduation, i.e. `D` years
+  after programme start. Interest does not continue to accrue past this
+  point.
 - For a disbursement made in study-year `i` (`i` = 1..`D`), the number of
-  compounding periods between that disbursement and the break point is:
+  compounding periods between that disbursement and graduation is:
 
   ```
-  periods(i) = (D - i) + B
+  periods(i) = D - i
   ```
 
   i.e. `(D - i)` whole academic years remaining in the programme after the
-  disbursement, **plus** `B` whole bond years elapsed after graduation.
+  disbursement, full stop — no bond-year term.
 
 This single `periods(i)` formula is used for both the NUS Liquidated Damages
 calculation and the MOE clawback calculation — both sides use the same
@@ -143,7 +180,7 @@ function nusLiquidatedDamages(D, B, cohort, category, feeTier):
     total = 0
     for i in 1..D:
         d = nusDisbursement(i)
-        periods = (D - i) + B
+        periods = D - i    // interest freezes at graduation — no + B here
         total += d * (1.10 ^ periods)
 
     cap = isDoubleDegreeProgramme ? 295_000 : 262_000    // Fourth Schedule para 2
@@ -169,7 +206,7 @@ function moeClawback(D, B, cohort, category, feeTier):
     total = 0
     for i in 1..D:
         d = moeDisbursement(i)
-        periods = (D - i) + B
+        periods = D - i    // interest freezes at graduation — no + B here
         total += d * (1.10 ^ periods)
 
     // No cap exists — confirmed absent from the First Schedule of the signed
@@ -239,7 +276,8 @@ graduate").
 
 Total disbursed (no interest) = 33,358 + 31,408×3 = **$127,582**
 
-### 7.2 Compounding periods (D=4, B=0): `periods(i) = (4 - i) + 0`
+### 7.2 Compounding periods (D=4): `periods(i) = 4 - i` (interest freezes at
+graduation, so `B` does not appear here — see section 2)
 
 | Year `i` | periods(i) | Disbursement | × 1.10^periods | Compounded amount |
 |---|---|---|---|---|
@@ -288,6 +326,31 @@ Total = NUS LD + MOE clawback
 **This scholar would owe approximately S$237,467.18 if they broke both bonds
 the day they graduated**, before legal/recovery costs (deferred) and before
 any post-demand overdue-payment interest (deferred).
+
+### 7.8 Full B=0..6 table (same profile), demonstrating the frozen-interest, linear-reduction shape
+
+Because interest freezes at graduation (section 2), the NUS and MOE
+compounded totals (before pro-rata reduction) are **constant across all
+values of `B`** — $148,359.98 and $89,107.20 respectively, for this profile.
+`B` only scales the linear pro-rata reduction applied on top. This makes the
+payback-vs-bond-year curve **exactly piecewise-linear** (a frozen total ×
+linear reduction factor), not the smoothly-decaying shape produced by the
+old, incorrect "interest keeps compounding through the bond" model:
+
+| `B` | NUS (after pro-rata) | MOE (after pro-rata) | Total |
+|---|---|---|---|
+| 0 | $148,359.98 | $89,107.20 | $237,467.18 |
+| 1 | $123,633.32 | $59,404.80 | $183,038.12 |
+| 2 | $98,906.65 | $29,702.40 | $128,609.05 |
+| 3 | $74,179.99 | $0.00 | $74,179.99 |
+| 4 | $49,453.33 | $0.00 | $49,453.33 |
+| 5 | $24,726.66 | $0.00 | $24,726.66 |
+| 6 | $0.00 | $0.00 | $0.00 |
+
+Note the sharp kink at `B=3`: MOE's obligation reaches exactly $0 and stays
+there, while NUS continues its own linear decline to `B=6`. Because MOE's
+total is frozen at graduation and only reduced linearly, this kink is a true
+piecewise-linear slope change, not a smooth-curve inflection.
 
 *(Sanity check for engineering: rerun this same example with `B = 6` — both
 `servedFraction` terms become 1, and both `nusLiquidatedDamages` and
@@ -426,3 +489,29 @@ finalizes on these.**
     NUS's overdue-interest mechanisms are textually identical (3-month
     compounded SORA + 4.5%, same reference-date windows) — standardized
     government boilerplate, not two separate mechanisms to model.
+
+13. **[SUPERSEDED, corrected 2026-07-04] Original assumption: interest
+    continues compounding through the bond-service period, not just
+    through study years.** Earlier versions of this spec (and the code)
+    used `periods(i) = (D - i) + B` — i.e. treated each of the `B` bond
+    years elapsed since graduation as an *additional* compounding period,
+    on top of the study-year periods. This was a **reasoned-but-not
+    -explicitly-confirmed textual inference** from the "compounded... up to
+    and including the date of termination of the Agreement" language in
+    NUS's Fourth Schedule para (1) and MOE's structurally identical
+    boilerplate (`docs/policy-snt.md` section 5, `docs/policy-moe-tgs.md`
+    section 3.1) — a plausible reading of "date of termination" as "the
+    date the bond-breaking scholar is asking about today," which could be
+    years into the bond period.
+    **This inference is now confirmed WRONG** by direct correspondence with
+    NUS/MOE (see section 2 above, confirmed 2026-07-04): interest stops
+    accruing at graduation/completion of studies, full stop. The
+    post-graduation bond-service period contributes **zero** additional
+    compounding periods; `B` affects only the linear pro-rata reduction
+    (sections 4-5), never the exponent. This entry is kept (rather than
+    silently deleted) so future readers understand this was a real,
+    deliberate prior model — now superseded by first-party confirmation,
+    the strongest evidence tier this project has — not a typo or an
+    unexplained silent change. See `src/calc/payback.ts` and
+    `src/calc/payback.test.ts` for the corrected implementation and its
+    regression test.

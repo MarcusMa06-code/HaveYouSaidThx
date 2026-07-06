@@ -136,7 +136,7 @@ function nusLiquidatedDamages(
   let total = 0;
   for (let i = 1; i <= D; i++) {
     const d = nusDisbursement(i, cohort, category, feeTier);
-    const periods = D - i + B;
+    const periods = D - i;
     total += d * Math.pow(1 + INTEREST_RATE, periods);
   }
   const beforeCap = total;
@@ -162,7 +162,7 @@ function moeClawback(
   let total = 0;
   for (let i = 1; i <= D; i++) {
     const d = moeDisbursement(cohort, category, feeTier);
-    const periods = D - i + B;
+    const periods = D - i;
     total += d * Math.pow(1 + INTEREST_RATE, periods);
   }
   const beforeProRata = total;
@@ -213,7 +213,7 @@ export function calculatePayback(inputs: CalculatorInputs): PaybackResult {
 
   const years: YearBreakdown[] = [];
   for (let i = 1; i <= D; i++) {
-    const periods = D - i + B;
+    const periods = D - i;
     const nusD = nusDisbursement(i, cohort, category, feeTier);
     const moeD = moeDisbursement(cohort, category, feeTier);
     years.push({
