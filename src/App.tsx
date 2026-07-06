@@ -43,10 +43,10 @@ function MarginalChart({ totals }: MarginalChartProps) {
 
   const w = CHART_W;
   const h = 260;
-  // ponytail: right padding is much smaller than left (100, reserved for the
-  // y-axis label column) since nothing sits to the right of the last bar —
-  // just enough breathing room so the last bar's value label doesn't clip.
-  const pad = { top: 44, right: 4, bottom: 40, left: 100 };
+  // ponytail: symmetric left/right padding — this chart has no y-axis label
+  // column, so there's nothing to reserve extra left space for. Equal padding
+  // keeps the bars centered in the card.
+  const pad = { top: 44, right: 20, bottom: 40, left: 20 };
   const pw = w - pad.left - pad.right;
   const ph = h - pad.top - pad.bottom;
   const n = marginal.length;
