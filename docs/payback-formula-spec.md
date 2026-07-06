@@ -153,7 +153,7 @@ hasPartialFinalSemester)` (section 2):
 ```
 nusDisbursement(i) =
     (isPartialFinalYear ? 0.5 : 1) * (
-        tuitionFee(cohort, category, feeTier)     // Third Schedule (c) — annual
+        tuitionFee(cohort, category)     // Third Schedule (c) — annual, ISOther rate (the only rate this calculator computes — see section 8, assumption #1)
       + livingAllowancePerYear                     // Third Schedule (d) — annual, $6,000
       + accommodationAllowancePerYear               // Third Schedule (f) — annual, $5,408 (AY25/26 figure)
     )
@@ -183,29 +183,29 @@ placeholder numbers for them.
 For each study-year `i` = 1..`D`, with the same `isPartialFinalYear` as 3.1:
 
 ```
-moeDisbursement(i) = (isPartialFinalYear ? 0.5 : 1) * tuitionGrantSubsidy(cohort, category, feeTier)
+moeDisbursement(i) = (isPartialFinalYear ? 0.5 : 1) * tuitionGrantSubsidy(cohort, category)
 ```
 
 Where `tuitionGrantSubsidy` is the gap MOE is covering — i.e. the difference
 between the `NonGrant` (full unsubsidised) rate and the international
-student's actual subsidised rate (`ISAsean` or `ISOther`) in
-`data/tuition-fees.ts` for that cohort/category/year. MOE's subsidy-gap
-amount is halved for the same partial final year as the NUS side, since it's
-still a per-semester-disbursed tuition subsidy.
+student's actual subsidised rate (`ISOther`, the only rate this calculator
+computes — see section 8, assumption #1) in `data/tuition-fees.ts` for that
+cohort/category/year. MOE's subsidy-gap amount is halved for the same
+partial final year as the NUS side, since it's still a per-semester-disbursed
+tuition subsidy.
 
 **Confirmed by the signed MOE Tuition Grant Agreement** (Recital 2 / Clause
 1(1)-(2)): "the Grant" that forms the liquidated-damages base is **Tuition
 Grant + GST Subsidy combined**, not the Tuition Grant alone. Because
-`data/tuition-fees.ts`'s international-student columns (`ISAsean`, `ISOther`,
+`data/tuition-fees.ts`'s international-student columns (`ISOther`,
 `NonGrant`) are already GST-inclusive (per that source PDF's own footnote —
-only the SC/PR columns exclude GST), the `NonGrant − ISOther/ISAsean` gap
-**already captures both components together**. No separate GST addition is
-needed or should be added on top of this gap — see
-`docs/policy-moe-tgs.md` section 3.2 for the full reasoning. This is still a
-**derived approximation of the officially published Grant figure** (Clause
-1(3) says the actual amount is separately published per academic year on
-MOE's Tuition Grant website) rather than a literal sourced figure — see
-section 8, assumption 7.
+only the SC/PR columns exclude GST), the `NonGrant − ISOther` gap **already
+captures both components together**. No separate GST addition is needed or
+should be added on top of this gap — see `docs/policy-moe-tgs.md` section
+3.2 for the full reasoning. This is still a **derived approximation of the
+officially published Grant figure** (Clause 1(3) says the actual amount is
+separately published per academic year on MOE's Tuition Grant website)
+rather than a literal sourced figure — see section 8, assumption 7.
 
 ## 4. NUS Liquidated Damages algorithm
 
@@ -214,7 +214,7 @@ ceil(S / 2)`), not a fixed per-degree constant — `nusDisbursement(i)` already
 folds in the partial-final-year halving from section 3.1 where applicable.
 
 ```
-function nusLiquidatedDamages(D, B, cohort, category, feeTier):
+function nusLiquidatedDamages(D, B, cohort, category):
     total = 0
     for i in 1..D:
         d = nusDisbursement(i)
@@ -240,7 +240,7 @@ would otherwise be payable.
 ## 5. MOE clawback algorithm
 
 ```
-function moeClawback(D, B, cohort, category, feeTier):
+function moeClawback(D, B, cohort, category):
     total = 0
     for i in 1..D:
         d = moeDisbursement(i)
@@ -281,9 +281,9 @@ already whole-year granularity), it's noted for accuracy only (see
 ## 6. Total payback amount
 
 ```
-function totalPayback(D, B, cohort, category, feeTier, isDoubleDegreeProgramme):
-    nus = nusLiquidatedDamages(D, B, cohort, category, feeTier, isDoubleDegreeProgramme)
-    moe = moeClawback(D, B, cohort, category, feeTier)
+function totalPayback(D, B, cohort, category, isDoubleDegreeProgramme):
+    nus = nusLiquidatedDamages(D, B, cohort, category, isDoubleDegreeProgramme)
+    moe = moeClawback(D, B, cohort, category)
     return nus + moe    // the two obligations are separate and additive — owed to two different bodies
 ```
 
@@ -401,10 +401,16 @@ This section lists every judgment call made where the source material was
 silent or ambiguous. **Product owner should review before engineering
 finalizes on these.**
 
-1. **Citizenship/residency status assumed constant.** The MVP assumes the
-   scholar's citizenship/residency status (and therefore fee tier — SC / PR /
-   IS-ASEAN / IS-Other / Non-Grant) is constant from admission through the
-   point of bond-breaking. In reality, NUS's cohort-based fee system locks
+1. **Citizenship/residency status assumed constant.** The calculator only
+   ever computes for an international student on the "other nationality"
+   (`ISOther`) Tuition Grant rate — every S&T scholar is assumed to fall
+   into this tier, and it's the only rate hardcoded into the calculation.
+   (ASEAN-passport students, and a separate possible "ASEAN Undergraduate
+   Scholarship calculator mode," were considered and explicitly ruled out of
+   scope by the product owner — see project history for reasoning; this is
+   not a placeholder for future support.) The MVP additionally assumes the
+   scholar's citizenship/residency status is constant from admission through
+   the point of bond-breaking. In reality, NUS's cohort-based fee system locks
    the fee schedule **per admission cohort and fee tier at the time it
    applies** — if a scholar's status changes mid-candidature (e.g.
    international → PR, or → Singapore Citizen), NUS moves them to the new,

@@ -64,10 +64,18 @@ manually-maintained fee dataset, run entirely in the browser.
   3-year) was fully removed — it's a fallback classification outcome for
   under-performing students, not a programme anyone enrolls into, so it was
   deleted from the `DegreeType` union, not just hidden in the UI.
-- **ASEAN nationality tier**: `ISAsean` stays fully intact in `FeeTier`,
-  `data/tuition-fees.ts`, and all calculation code — only the `<select>`
-  option in `App.tsx` is UI-disabled (`(not yet supported)`), pending
-  product work to re-enable it. Do not remove the underlying data/type.
+- **ASEAN nationality tier: permanently out of scope, not deferred.** The
+  product owner has ruled against ever supporting ASEAN-passport students in
+  this calculator. There is no `FeeTier` type, no `ISAsean` field, and no
+  disabled/hidden UI option for it — the calculator only ever computes the
+  `ISOther` rate, inlined directly at the lookup sites. A separate "ASEAN
+  Undergraduate Scholarship calculator mode" (a different scholarship
+  program from S&T) was also considered and ruled out: it likely doesn't
+  carry NUS's own separate service bond the way S&T does, so there'd be
+  nothing distinctive for such a mode to compute. Nothing was ever built for
+  it. Do not reintroduce an ASEAN fee tier or reference ASEAN Scholarship as
+  future scope — if NUS policy changes make this relevant again, that's a
+  new product decision, not a resumption of old work.
 - **Study duration is semester-granular**, not a fixed per-degree constant.
   `CalculatorInputs.semestersCompleted` (`S`) replaces the old fixed
   `disbursementYears(degree)` lookup; `D = ceil(S / 2)` derives the

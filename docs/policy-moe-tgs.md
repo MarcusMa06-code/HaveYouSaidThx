@@ -147,16 +147,16 @@ academic year — i.e. there is an official, per-cohort, per-year published
 figure, distinct from whatever this calculator derives.
 
 **Relationship to `data/tuition-fees.ts`:** that dataset's international
-student fee columns (`ISAsean`, `ISOther`, `NonGrant`) are, per the source
-PDF's own footnote, **GST-inclusive** for international-student rates (only
-the SC/PR columns exclude GST, since MOE subsidises GST directly for those).
-This means the existing subsidy-gap approximation used in the spec doc —
-`NonGrant − ISOther` (or `NonGrant − ISAsean`) — **already implicitly
-captures both the Tuition Grant and the GST Subsidy together as one combined
-gap**, because both the subsidised and unsubsidised columns it's derived
-from are themselves GST-inclusive. **No separate GST addition needs to be
-layered on top of the existing subsidy-gap calculation** — doing so would
-double count the GST component.
+student fee columns (`ISOther`, `NonGrant`) are, per the source PDF's own
+footnote, **GST-inclusive** for international-student rates (only the SC/PR
+columns exclude GST, since MOE subsidises GST directly for those). This
+means the existing subsidy-gap approximation used in the spec doc —
+`NonGrant − ISOther` — **already implicitly captures both the Tuition Grant
+and the GST Subsidy together as one combined gap**, because both the
+subsidised and unsubsidised columns it's derived from are themselves
+GST-inclusive. **No separate GST addition needs to be layered on top of the
+existing subsidy-gap calculation** — doing so would double count the GST
+component.
 
 This remains **a derived approximation of the officially published Grant
 figure, not the literal MOE-published number for that student's actual
@@ -299,8 +299,8 @@ signed agreement text. What remains:
    will not exactly match the Estimator's (presumably month-precise) output.
 2. **Confirm the actual published Grant amount** for a real cohort/year via
    MOE's Tuition Grant website (per Clause 1(3)) if a more exact LD base
-   figure is wanted than the `NonGrant − ISOther/ISAsean` derived
-   approximation in `data/tuition-fees.ts`.
+   figure is wanted than the `NonGrant − ISOther` derived approximation in
+   `data/tuition-fees.ts`.
 3. **Clause 3(2)'s discretionary relief** (illness/accident/extenuating
    circumstances) and **Clause 3(4)'s discretionary pro-rata reduction**
    ("may... at its sole discretion") both leave room for MOE to depart from

@@ -32,8 +32,6 @@ export interface TuitionFeeRow {
   SC: number;
   /** Singapore Permanent Resident */
   PR: number;
-  /** International Student, ASEAN-member-state passport, with MOE Tuition Grant */
-  ISAsean: number;
   /** International Student, other nationality, with MOE Tuition Grant */
   ISOther: number;
   /** International Student NOT in receipt of the MOE Tuition Grant (full unsubsidised rate, incl. 9% GST) */
@@ -50,21 +48,18 @@ export const TUITION_FEES: TuitionFeeTable = {
     Computing: {
       SC: 8250,
       PR: 11550,
-      ISAsean: 17950,
       ISOther: 18900,
       NonGrant: 39200,
     },
     DesignAndEngineering: {
       SC: 8250,
       PR: 11550,
-      ISAsean: 17950,
       ISOther: 18900,
       NonGrant: 39200,
     },
     HumanitiesAndSciences: {
       SC: 8250,
       PR: 11550,
-      ISAsean: 17950,
       ISOther: 18900,
       NonGrant: 34900,
     },
@@ -73,21 +68,18 @@ export const TUITION_FEES: TuitionFeeTable = {
     Computing: {
       SC: 8250,
       PR: 11550,
-      ISAsean: 17950,
       ISOther: 20000,
       NonGrant: 39200,
     },
     DesignAndEngineering: {
       SC: 8250,
       PR: 11550,
-      ISAsean: 17950,
       ISOther: 20000,
       NonGrant: 39200,
     },
     HumanitiesAndSciences: {
       SC: 8250,
       PR: 11550,
-      ISAsean: 17950,
       ISOther: 20000,
       NonGrant: 34900,
     },
@@ -96,21 +88,18 @@ export const TUITION_FEES: TuitionFeeTable = {
     Computing: {
       SC: 8300,
       PR: 11600,
-      ISAsean: 18050,
       ISOther: 21400,
       NonGrant: 39700,
     },
     DesignAndEngineering: {
       SC: 8300,
       PR: 11600,
-      ISAsean: 18050,
       ISOther: 21400,
       NonGrant: 39700,
     },
     HumanitiesAndSciences: {
       SC: 8300,
       PR: 11600,
-      ISAsean: 18050,
       ISOther: 21400,
       NonGrant: 36650,
     },

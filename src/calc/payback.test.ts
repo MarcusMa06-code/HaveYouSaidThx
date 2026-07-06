@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { calculatePayback } from "./payback";
 
 // Worked example from docs/payback-formula-spec.md section 7:
-// Bachelor with Honours, DesignAndEngineering, ISOther, AY2025/2026,
-// single-degree, 0 bond years completed, full 8-semester nominal duration.
+// Bachelor with Honours, DesignAndEngineering, ISOther (the only rate this
+// calculator computes), AY2025/2026, single-degree, 0 bond years completed,
+// full 8-semester nominal duration.
 const baseInputs = {
   cohort: "AY2025/2026" as const,
   category: "DesignAndEngineering" as const,
-  feeTier: "ISOther" as const,
   degree: "BachelorHonours" as const,
   semestersCompleted: 8,
 };
@@ -66,7 +66,6 @@ describe("calculatePayback — semester-granularity early graduation", () => {
     const result = calculatePayback({
       cohort: "AY2025/2026",
       category: "DesignAndEngineering",
-      feeTier: "ISOther",
       degree: "DoubleDegreeSingleHonours",
       semestersCompleted: 9,
       bondYearsCompleted: 0,

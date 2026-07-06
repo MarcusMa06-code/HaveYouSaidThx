@@ -4,7 +4,6 @@ import {
   calculatePayback,
   nominalSemesters,
   type DegreeType,
-  type FeeTier,
 } from "./calc/payback";
 import { MAJOR_GROUPS } from "./calc/majors";
 import "./App.css";
@@ -101,7 +100,6 @@ function MarginalChart({ totals }: MarginalChartProps) {
 function App() {
   const [cohort, setCohort] = useState<AdmissionCohort>("AY2025/2026");
   const [major, setMajor] = useState(MAJOR_GROUPS[1].majors[3]); // Computer Engineering
-  const [feeTier, setFeeTier] = useState<FeeTier>("ISOther");
   const [degree, setDegree] = useState<DegreeType>("BachelorHonours");
   const [bondYears, setBondYears] = useState(0);
   const [semestersCompleted, setSemestersCompleted] = useState(nominalSemesters("BachelorHonours"));
@@ -126,12 +124,11 @@ function App() {
       calculatePayback({
         cohort,
         category,
-        feeTier,
         degree,
         bondYearsCompleted: bondYears,
         semestersCompleted,
       }),
-    [cohort, category, feeTier, degree, bondYears, semestersCompleted],
+    [cohort, category, degree, bondYears, semestersCompleted],
   );
 
   // Full B=0..6 trajectory for the marginal-savings chart, reusing
@@ -140,9 +137,9 @@ function App() {
   const totals = useMemo(
     () =>
       Array.from({ length: 7 }, (_, b) =>
-        calculatePayback({ cohort, category, feeTier, degree, bondYearsCompleted: b, semestersCompleted }).total,
+        calculatePayback({ cohort, category, degree, bondYearsCompleted: b, semestersCompleted }).total,
       ),
-    [cohort, category, feeTier, degree, semestersCompleted],
+    [cohort, category, degree, semestersCompleted],
   );
 
   return (
@@ -179,20 +176,6 @@ function App() {
                 ))}
               </optgroup>
             ))}
-          </select>
-        </div>
-
-        <div className="field">
-          <label htmlFor="feeTier">Nationality (for fee calculation)</label>
-          <select
-            id="feeTier"
-            value={feeTier}
-            onChange={(e) => setFeeTier(e.target.value as FeeTier)}
-          >
-            <option value="ISAsean" disabled>
-              International Student — ASEAN passport (not yet supported)
-            </option>
-            <option value="ISOther">International Student — other nationality</option>
           </select>
         </div>
 

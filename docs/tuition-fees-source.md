@@ -18,9 +18,14 @@ does not change if fees are revised in a later year for new intakes.
 |---|---|
 | SC | Singapore Citizen |
 | PR | Singapore Permanent Resident |
-| IS-ASEAN | International Student, ASEAN-member-state passport, in receipt of the MOE Tuition Grant |
 | IS-Other | International Student, other nationality, in receipt of the MOE Tuition Grant |
 | Non-Grant | International Student fee if NOT in receipt of the MOE Tuition Grant (full unsubsidised rate, inclusive of 9% GST). SC/PR figures exclude GST since MOE subsidises it directly. |
+
+Note: the source PDF also publishes an IS-ASEAN column (International
+Student, ASEAN-member-state passport). It is deliberately **not** carried
+into `data/tuition-fees.ts` — the product owner has permanently ruled ASEAN-
+passport students out of scope for this calculator (not deferred, not a
+future toggle). See project history for the reasoning.
 
 ## Scope: which fee category applies to which programme
 

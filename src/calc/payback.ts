@@ -14,11 +14,6 @@ import {
   type FeeCategory,
 } from "../../data/tuition-fees";
 
-/** The only two fee tiers this calculator exposes (every S&T scholar is an
- * international student on the MOE Tuition Grant — see product-owner scope
- * decision #2, SC/PR/NonGrant exist in the dataset but aren't offered here). */
-export type FeeTier = "ISAsean" | "ISOther";
-
 export type DegreeType =
   | "BachelorHonours"
   | "DoubleDegreeSingleHonours"
@@ -63,7 +58,6 @@ function disbursementYearsFromSemesters(S: number): {
 export interface CalculatorInputs {
   cohort: AdmissionCohort;
   category: FeeCategory;
-  feeTier: FeeTier;
   degree: DegreeType;
   /** Bond years completed since graduation, integer 0-6 (spec section 1). */
   bondYearsCompleted: number;
@@ -103,10 +97,9 @@ function nusDisbursement(
   i: number,
   cohort: AdmissionCohort,
   category: FeeCategory,
-  feeTier: FeeTier,
   isPartialFinalYear: boolean,
 ): number {
-  const tuition = TUITION_FEES[cohort][category][feeTier];
+  const tuition = TUITION_FEES[cohort][category].ISOther;
   const {
     livingAllowancePerYear,
     accommodationAllowancePerYear,
@@ -136,11 +129,10 @@ function nusDisbursement(
 function moeDisbursement(
   cohort: AdmissionCohort,
   category: FeeCategory,
-  feeTier: FeeTier,
   isPartialFinalYear: boolean,
 ): number {
   const row = TUITION_FEES[cohort][category];
-  const gap = row.NonGrant - row[feeTier];
+  const gap = row.NonGrant - row.ISOther;
   return isPartialFinalYear ? gap / 2 : gap;
 }
 
@@ -150,13 +142,12 @@ function nusLiquidatedDamages(
   B: number,
   cohort: AdmissionCohort,
   category: FeeCategory,
-  feeTier: FeeTier,
   degree: DegreeType,
   hasPartialFinalSemester: boolean,
 ): { beforeCap: number; afterCap: number; afterProRata: number; cap: number } {
   let total = 0;
   for (let i = 1; i <= D; i++) {
-    const d = nusDisbursement(i, cohort, category, feeTier, i === D && hasPartialFinalSemester);
+    const d = nusDisbursement(i, cohort, category, i === D && hasPartialFinalSemester);
     const periods = D - i;
     total += d * Math.pow(1 + INTEREST_RATE, periods);
   }
@@ -178,12 +169,11 @@ function moeClawback(
   B: number,
   cohort: AdmissionCohort,
   category: FeeCategory,
-  feeTier: FeeTier,
   hasPartialFinalSemester: boolean,
 ): { beforeProRata: number; afterProRata: number } {
   let total = 0;
   for (let i = 1; i <= D; i++) {
-    const d = moeDisbursement(cohort, category, feeTier, i === D && hasPartialFinalSemester);
+    const d = moeDisbursement(cohort, category, i === D && hasPartialFinalSemester);
     const periods = D - i;
     total += d * Math.pow(1 + INTEREST_RATE, periods);
   }
@@ -199,19 +189,19 @@ function moeClawback(
 /** Full calculation, spec sections 4-7. Returns both the headline total and
  * the full per-year breakdown for the advanced/audit view. */
 export function calculatePayback(inputs: CalculatorInputs): PaybackResult {
-  const { cohort, category, feeTier, degree, bondYearsCompleted, semestersCompleted } = inputs;
+  const { cohort, category, degree, bondYearsCompleted, semestersCompleted } = inputs;
   const { D, hasPartialFinalSemester } = disbursementYearsFromSemesters(semestersCompleted);
   const B = bondYearsCompleted;
 
-  const nus = nusLiquidatedDamages(D, B, cohort, category, feeTier, degree, hasPartialFinalSemester);
-  const moe = moeClawback(D, B, cohort, category, feeTier, hasPartialFinalSemester);
+  const nus = nusLiquidatedDamages(D, B, cohort, category, degree, hasPartialFinalSemester);
+  const moe = moeClawback(D, B, cohort, category, hasPartialFinalSemester);
 
   const years: YearBreakdown[] = [];
   for (let i = 1; i <= D; i++) {
     const periods = D - i;
     const isPartialFinalYear = i === D && hasPartialFinalSemester;
-    const nusD = nusDisbursement(i, cohort, category, feeTier, isPartialFinalYear);
-    const moeD = moeDisbursement(cohort, category, feeTier, isPartialFinalYear);
+    const nusD = nusDisbursement(i, cohort, category, isPartialFinalYear);
+    const moeD = moeDisbursement(cohort, category, isPartialFinalYear);
     years.push({
       year: i,
       periods,
