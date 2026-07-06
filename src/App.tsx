@@ -2,6 +2,9 @@ import { useMemo, useState } from "react";
 import type { AdmissionCohort, FeeCategory } from "../data/tuition-fees";
 import { calculatePayback, nominalSemesters } from "./calc/payback";
 import { MAJOR_GROUPS } from "./calc/majors";
+import { useSettings } from "./settings";
+import { formatMoney, CURRENCIES } from "./currency";
+import { LANGS } from "./i18n";
 import "./App.css";
 
 const COHORTS: AdmissionCohort[] = ["AY2024/2025", "AY2025/2026", "AY2026/2027"];
@@ -13,12 +16,6 @@ const COHORTS: AdmissionCohort[] = ["AY2024/2025", "AY2025/2026", "AY2026/2027"]
 // the DoubleDegree* cases fully implemented for that future work.
 const DEGREE = "BachelorHonours";
 
-const money = (n: number) =>
-  n.toLocaleString("en-SG", { style: "currency", currency: "SGD", maximumFractionDigits: 2 });
-
-const moneyShort = (n: number) =>
-  n.toLocaleString("en-SG", { style: "currency", currency: "SGD", maximumFractionDigits: 0 });
-
 // ponytail: plain inline SVG for the marginal-savings chart — 6 data points,
 // no zoom/pan/tooltip interactivity requested, so a charting library would
 // be pure weight. A couple of <rect>/<text> elements is the right amount of
@@ -26,7 +23,11 @@ const moneyShort = (n: number) =>
 const CHART_W = 640;
 
 interface MarginalChartProps {
-  totals: number[]; // index = B, 0..6
+  totals: number[]; // index = B, 0..6 (SGD)
+  /** Formats an SGD figure to the selected currency, no decimals (chart labels). */
+  fmt: (sgd: number) => string;
+  /** Translated "Year {n}" axis label. */
+  yearLabel: (n: number) => string;
 }
 
 /** Bar chart of marginal savings (first difference), styled as the two-tier
@@ -37,7 +38,7 @@ interface MarginalChartProps {
  * MOE's bond is fully discharged. Two distinct colors/shades mark the two
  * tiers directly on the bars — the step is visually obvious without a
  * caption spelling it out. */
-function MarginalChart({ totals }: MarginalChartProps) {
+function MarginalChart({ totals, fmt, yearLabel }: MarginalChartProps) {
   const marginal = totals.slice(0, 6).map((v, b) => v - totals[b + 1]); // index = step B->B+1
   const transitionIndex = 2; // B=2 -> B=3 step: MOE's bond fully discharges here
 
@@ -74,12 +75,12 @@ function MarginalChart({ totals }: MarginalChartProps) {
       ))}
       {marginal.map((v, i) => (
         <text key={i} x={labelX(i)} y={yBar(v) - 8} className="chart-bar-value" textAnchor="middle">
-          {moneyShort(v)}
+          {fmt(v)}
         </text>
       ))}
       {marginal.map((_, i) => (
         <text key={i} x={labelX(i)} y={h - 6} className="chart-axis-label" textAnchor="middle">
-          Year {i + 1}
+          {yearLabel(i + 1)}
         </text>
       ))}
 
@@ -103,6 +104,13 @@ const dateInputValue = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 function App() {
+  const { t, lang, setLang, currency, setCurrency, ratesState } = useSettings();
+
+  // All monetary display goes through one place: convert SGD -> selected
+  // currency + format. `money` full (2dp), `moneyShort` for compact chart labels.
+  const money = (sgd: number) => formatMoney(sgd, currency, ratesState.rates, 2);
+  const moneyShort = (sgd: number) => formatMoney(sgd, currency, ratesState.rates, 0);
+
   const [cohort, setCohort] = useState<AdmissionCohort>("AY2025/2026");
   const [major, setMajor] = useState(MAJOR_GROUPS[0].majors[3]); // Computer Science
   const [bondYears, setBondYears] = useState(0);
@@ -158,16 +166,44 @@ function App() {
   return (
     <>
       <header className="page-header">
-        <h1>Have You Said Thx?</h1>
-        <p className="subtitle">
-          Estimate what you'd owe NUS and MOE if you broke your S&amp;T
-          scholarship bond.
+        <div className="header-top">
+          <h1>Have You Said Thx?</h1>
+          <div className="settings-selectors">
+            <select
+              aria-label="Language"
+              className="mini-select"
+              value={lang}
+              onChange={(e) => setLang(e.target.value as typeof lang)}
+            >
+              {LANGS.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Currency"
+              className="mini-select"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as typeof currency)}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <p className="subtitle">{t("subtitle")}</p>
+        <p className="fx-note">
+          {ratesState.date ? t("ratesAsOf", ratesState.date) : t("ratesApprox")}
         </p>
       </header>
 
       <section className="card">
         <div className="field">
-          <label htmlFor="cohort">Admission cohort</label>
+          <label htmlFor="cohort">{t("cohortLabel")}</label>
           <select id="cohort" value={cohort} onChange={(e) => setCohort(e.target.value as AdmissionCohort)}>
             {COHORTS.map((c) => (
               <option key={c} value={c}>
@@ -178,7 +214,7 @@ function App() {
         </div>
 
         <div className="field">
-          <label htmlFor="major">Major / programme</label>
+          <label htmlFor="major">{t("majorLabel")}</label>
           <select id="major" value={major} onChange={(e) => setMajor(e.target.value)}>
             {MAJOR_GROUPS.map((group) => (
               <optgroup key={group.category} label={group.label}>
@@ -194,7 +230,7 @@ function App() {
 
         <div className="field">
           <label htmlFor="semestersCompleted">
-            Semesters of study completed: <strong>{semestersCompleted}</strong> of {maxSemesters}
+            {t("semestersLabel", semestersCompleted, maxSemesters)}
           </label>
           <input
             id="semestersCompleted"
@@ -214,9 +250,7 @@ function App() {
 
         {!useExactDates && (
           <div className="field">
-            <label htmlFor="bondYears">
-              Bond years completed since graduation: <strong>{bondYears}</strong>
-            </label>
+            <label htmlFor="bondYears">{t("bondYearsLabel", bondYears)}</label>
             <input
               id="bondYears"
               type="range"
@@ -249,17 +283,15 @@ function App() {
               if (next && !asOfDate) setAsOfDate(dateInputValue(new Date()));
             }}
           >
-            {useExactDates ? "Using exact dates" : "Advanced: use exact bond dates"}
+            {useExactDates ? t("advancedToggleOn") : t("advancedToggleOff")}
           </button>
-          {useExactDates && (
-            <p className="field-note">Dates below override the bond-years slider.</p>
-          )}
+          {useExactDates && <p className="field-note">{t("advancedNote")}</p>}
         </div>
 
         {useExactDates && (
           <>
             <div className="field">
-              <label htmlFor="bondStartDate">Bond start date (first day of Qualifying Employment)</label>
+              <label htmlFor="bondStartDate">{t("bondStartLabel")}</label>
               <input
                 id="bondStartDate"
                 type="date"
@@ -268,7 +300,7 @@ function App() {
               />
             </div>
             <div className="field">
-              <label htmlFor="asOfDate">Calculating as of</label>
+              <label htmlFor="asOfDate">{t("asOfLabel")}</label>
               <input
                 id="asOfDate"
                 type="date"
@@ -281,28 +313,15 @@ function App() {
       </section>
 
       <section className="result card">
-        <p className="result-label">Estimated total payback</p>
+        <p className="result-label">{t("resultLabel")}</p>
         <p className="result-value">{money(result.total)}</p>
-        <p className="disclaimer">
-          This figure covers tuition, allowances, and the MOE Tuition Grant
-          subsidy, each with 10% yearly interest as set out in the
-          scholarship and Tuition Grant agreements. It excludes airfare,
-          medical/insurance coverage, and other unquantified approved
-          expenses, since no fixed amount for these is available — so the
-          real amount owed may be somewhat higher. This is an estimate, not
-          an official figure from NUS or MOE.
-        </p>
+        <p className="disclaimer">{t("disclaimer")}</p>
       </section>
 
       <section className="card chart-card">
-        <h2>How much you save per extra year you stay bonded</h2>
-        <p className="advanced-meta">
-          Each bar shows how much less you'd owe if you served one more bond
-          year. The savings stay the same for the first few years (while
-          MOE's bond is still active), then drop to a smaller constant amount
-          once MOE's portion is fully paid off.
-        </p>
-        <MarginalChart totals={totals} />
+        <h2>{t("chartTitle")}</h2>
+        <p className="advanced-meta">{t("chartCaption")}</p>
+        <MarginalChart totals={totals} fmt={moneyShort} yearLabel={(n) => t("chartYear", n)} />
       </section>
 
       <button
@@ -311,28 +330,26 @@ function App() {
         onClick={() => setShowAdvanced((v) => !v)}
         aria-expanded={showAdvanced}
       >
-        {showAdvanced ? "Hide" : "Show"} calculation breakdown
+        {showAdvanced ? t("breakdownHide") : t("breakdownShow")}
       </button>
 
       {showAdvanced && (
         <section className="card advanced statement">
-          <h2>Breakdown</h2>
-          <p className="advanced-meta">
-            Years scholarship money was paid to you: {result.D}. Bond years completed: {result.B}.
-          </p>
+          <h2>{t("breakdownTitle")}</h2>
+          <p className="advanced-meta">{t("breakdownMeta", result.D, result.B)}</p>
 
           {/* ponytail: two narrow 3-col tables stacked vertically, instead of
               one wide 6-col table, so nothing needs horizontal scroll at any
               viewport width (Task 4.4) — a side-effect of a layout that also
               reads more like two separate ledgers, NUS's and MOE's. */}
           <div className="statement-section">
-            <h3>NUS payments to you, by year</h3>
+            <h3>{t("nusTableTitle")}</h3>
             <table>
               <thead>
                 <tr>
-                  <th>Year</th>
-                  <th>Amount paid</th>
-                  <th>Running total with interest</th>
+                  <th>{t("colYear")}</th>
+                  <th>{t("colAmountPaid")}</th>
+                  <th>{t("colRunningTotal")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -348,13 +365,13 @@ function App() {
           </div>
 
           <div className="statement-section">
-            <h3>MOE payments to you, by year</h3>
+            <h3>{t("moeTableTitle")}</h3>
             <table>
               <thead>
                 <tr>
-                  <th>Year</th>
-                  <th>Amount paid</th>
-                  <th>Running total with interest</th>
+                  <th>{t("colYear")}</th>
+                  <th>{t("colAmountPaid")}</th>
+                  <th>{t("colRunningTotal")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -370,39 +387,45 @@ function App() {
           </div>
 
           <div className="statement-section statement-summary">
-            <h3>Statement summary</h3>
+            <h3>{t("summaryTitle")}</h3>
             <dl className="subtotals">
-              <dt>NUS Liquidated Damages (the amount you owe NUS under your bond) — before cap</dt>
+              <dt>{t("nusBeforeCap")}</dt>
               <dd>{money(result.nusBeforeCap)}</dd>
 
-              <dt>NUS cap applied (single-degree $262,000 / double-degree $295,000)</dt>
+              <dt>{t("nusCapApplied")}</dt>
               <dd>{money(result.cap)}</dd>
 
-              <dt>NUS Liquidated Damages — after cap</dt>
+              <dt>{t("nusAfterCap")}</dt>
               <dd>{money(result.nusAfterCap)}</dd>
 
               <dt className="subtotal-row">
-                NUS Liquidated Damages —{" "}
                 {result.exactDateBreakdown
-                  ? `reduced for ${result.exactDateBreakdown.daysServed} days served (of ${result.exactDateBreakdown.totalBondDays})`
-                  : "reduced for bond years already served"}
+                  ? t(
+                      "nusAfterProRataDays",
+                      result.exactDateBreakdown.daysServed,
+                      result.exactDateBreakdown.totalBondDays,
+                    )
+                  : t("nusAfterProRataYears")}
               </dt>
               <dd className="subtotal-row">{money(result.nusAfterProRata)}</dd>
 
-              <dt>MOE Tuition Grant repayment — before reduction for bond years served (no cap applies)</dt>
+              <dt>{t("moeBeforeProRata")}</dt>
               <dd>{money(result.moeBeforeProRata)}</dd>
 
               <dt className="subtotal-row">
-                MOE Tuition Grant repayment —{" "}
                 {result.exactDateBreakdown
-                  ? `reduced for ${result.exactDateBreakdown.monthsServed} months served (of ${result.exactDateBreakdown.totalBondMonths})`
-                  : "reduced for bond years already served"}
+                  ? t(
+                      "moeAfterProRataMonths",
+                      result.exactDateBreakdown.monthsServed,
+                      result.exactDateBreakdown.totalBondMonths,
+                    )
+                  : t("moeAfterProRataYears")}
               </dt>
               <dd className="subtotal-row">{money(result.moeAfterProRata)}</dd>
             </dl>
 
             <div className="statement-total">
-              <span>Total payback</span>
+              <span>{t("totalPayback")}</span>
               <span>{money(result.total)}</span>
             </div>
           </div>
@@ -410,12 +433,7 @@ function App() {
       )}
 
       <footer className="page-footer">
-        <p>
-          Unofficial estimate based on publicly available policy documents and
-          the S&amp;T Scholarship / Tuition Grant agreement formulas. Not
-          financial or legal advice. See the project's <code>docs/</code>{" "}
-          folder for the full methodology and assumptions.
-        </p>
+        <p>{t("footer")}</p>
       </footer>
     </>
   );
