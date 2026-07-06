@@ -80,14 +80,16 @@ function MarginalChart({ totals }: MarginalChartProps) {
       ))}
       {marginal.map((_, i) => (
         <text key={i} x={labelX(i)} y={h - 6} className="chart-axis-label" textAnchor="middle">
-          {i}&rarr;{i + 1}
+          Year {i + 1}
         </text>
       ))}
 
-      {/* transition marker between the two tiers */}
+      {/* transition marker between the two tiers, at the true midpoint
+          between this band and the next (not just half the gap after this
+          bar, which sat too close to transitionIndex's bar/label) */}
       <line
-        x1={barX(transitionIndex) + barW + (bandW * 0.2) / 2}
-        x2={barX(transitionIndex) + barW + (bandW * 0.2) / 2}
+        x1={pad.left + (transitionIndex + 1) * bandW}
+        x2={pad.left + (transitionIndex + 1) * bandW}
         y1={pad.top}
         y2={yBar(0)}
         className="chart-tier-divider"
