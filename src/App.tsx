@@ -94,6 +94,11 @@ function MarginalChart({ totals }: MarginalChartProps) {
   );
 }
 
+/** yyyy-mm-dd for an <input type="date">'s value attribute, in local time
+ * (not toISOString, which shifts to UTC and can roll the date back a day). */
+const dateInputValue = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 function App() {
   const [cohort, setCohort] = useState<AdmissionCohort>("AY2025/2026");
   const [major, setMajor] = useState(MAJOR_GROUPS[0].majors[3]); // Computer Science
@@ -101,12 +106,27 @@ function App() {
   const [semestersCompleted, setSemestersCompleted] = useState(nominalSemesters(DEGREE));
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Advanced toggle for exact bond dates (opt-in, off by default — see
+  // docs/payback-formula-spec.md section 1 / CLAUDE.md on the coarse slider
+  // being a deliberate MVP simplification). "use dates" naming to avoid
+  // clashing with showAdvanced above, which toggles the breakdown view.
+  const [useExactDates, setUseExactDates] = useState(false);
+  const [bondStartDate, setBondStartDate] = useState<string>("");
+  const [asOfDate, setAsOfDate] = useState<string>("");
+
   const category: FeeCategory = useMemo(() => {
     const group = MAJOR_GROUPS.find((g) => g.majors.includes(major));
     return group ? group.category : MAJOR_GROUPS[0].category;
   }, [major]);
 
   const maxSemesters = nominalSemesters(DEGREE);
+
+  // Exact dates only take effect once both fields are filled in — falls back
+  // to the slider otherwise (spec: "bond-start-date field is empty" -> current behavior).
+  const exactBondDates = useMemo(() => {
+    if (!useExactDates || !bondStartDate || !asOfDate) return undefined;
+    return { bondStartDate: new Date(bondStartDate), asOfDate: new Date(asOfDate) };
+  }, [useExactDates, bondStartDate, asOfDate]);
 
   const result = useMemo(
     () =>
@@ -116,8 +136,9 @@ function App() {
         degree: DEGREE,
         bondYearsCompleted: bondYears,
         semestersCompleted,
+        exactBondDates,
       }),
-    [cohort, category, bondYears, semestersCompleted],
+    [cohort, category, bondYears, semestersCompleted, exactBondDates],
   );
 
   // Full B=0..6 trajectory for the marginal-savings chart, reusing
@@ -188,25 +209,72 @@ function App() {
           </div>
         </div>
 
-        <div className="field">
-          <label htmlFor="bondYears">
-            Bond years completed since graduation: <strong>{bondYears}</strong>
-          </label>
-          <input
-            id="bondYears"
-            type="range"
-            min={0}
-            max={6}
-            step={1}
-            value={bondYears}
-            onChange={(e) => setBondYears(Number(e.target.value))}
-          />
-          <div className="range-ticks">
-            {[0, 1, 2, 3, 4, 5, 6].map((y) => (
-              <span key={y}>{y}</span>
-            ))}
+        {!useExactDates && (
+          <div className="field">
+            <label htmlFor="bondYears">
+              Bond years completed since graduation: <strong>{bondYears}</strong>
+            </label>
+            <input
+              id="bondYears"
+              type="range"
+              min={0}
+              max={6}
+              step={1}
+              value={bondYears}
+              onChange={(e) => setBondYears(Number(e.target.value))}
+            />
+            <div className="range-ticks">
+              {[0, 1, 2, 3, 4, 5, 6].map((y) => (
+                <span key={y}>{y}</span>
+              ))}
+            </div>
           </div>
+        )}
+
+        <div className="field">
+          <button
+            type="button"
+            className="toggle-advanced-dates"
+            aria-expanded={useExactDates}
+            onClick={() => {
+              const next = !useExactDates;
+              setUseExactDates(next);
+              // Default "calculating as of" to today the moment the toggle
+              // reveals the date inputs (most common question: "what would
+              // I owe if I left today"), but only if not already set, so
+              // re-toggling doesn't clobber a date the user picked.
+              if (next && !asOfDate) setAsOfDate(dateInputValue(new Date()));
+            }}
+          >
+            {useExactDates ? "Using exact dates" : "Advanced: use exact bond dates"}
+          </button>
+          {useExactDates && (
+            <p className="field-note">Dates below override the bond-years slider.</p>
+          )}
         </div>
+
+        {useExactDates && (
+          <>
+            <div className="field">
+              <label htmlFor="bondStartDate">Bond start date (first day of Qualifying Employment)</label>
+              <input
+                id="bondStartDate"
+                type="date"
+                value={bondStartDate}
+                onChange={(e) => setBondStartDate(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="asOfDate">Calculating as of</label>
+              <input
+                id="asOfDate"
+                type="date"
+                value={asOfDate}
+                onChange={(e) => setAsOfDate(e.target.value)}
+              />
+            </div>
+          </>
+        )}
       </section>
 
       <section className="result card">
@@ -310,13 +378,23 @@ function App() {
               <dt>NUS Liquidated Damages — after cap</dt>
               <dd>{money(result.nusAfterCap)}</dd>
 
-              <dt className="subtotal-row">NUS Liquidated Damages — reduced for bond years already served</dt>
+              <dt className="subtotal-row">
+                NUS Liquidated Damages —{" "}
+                {result.exactDateBreakdown
+                  ? `reduced for ${result.exactDateBreakdown.daysServed} days served (of ${result.exactDateBreakdown.totalBondDays})`
+                  : "reduced for bond years already served"}
+              </dt>
               <dd className="subtotal-row">{money(result.nusAfterProRata)}</dd>
 
               <dt>MOE Tuition Grant repayment — before reduction for bond years served (no cap applies)</dt>
               <dd>{money(result.moeBeforeProRata)}</dd>
 
-              <dt className="subtotal-row">MOE Tuition Grant repayment — reduced for bond years already served</dt>
+              <dt className="subtotal-row">
+                MOE Tuition Grant repayment —{" "}
+                {result.exactDateBreakdown
+                  ? `reduced for ${result.exactDateBreakdown.monthsServed} months served (of ${result.exactDateBreakdown.totalBondMonths})`
+                  : "reduced for bond years already served"}
+              </dt>
               <dd className="subtotal-row">{money(result.moeAfterProRata)}</dd>
             </dl>
 

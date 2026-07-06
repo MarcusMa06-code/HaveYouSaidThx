@@ -55,15 +55,94 @@ function disbursementYearsFromSemesters(S: number): {
   return { D: Math.ceil(S / 2), hasPartialFinalSemester: S % 2 !== 0 };
 }
 
+/** Exact bond dates for the opt-in "Advanced" precision mode (see
+ * docs/payback-formula-spec.md section 1, Clause 6(a)). Both must be set for
+ * exact-date pro-rata to apply; otherwise callers fall back to the integer
+ * bondYearsCompleted slider. */
+export interface ExactBondDates {
+  /** First day of Qualifying Employment (Clause 6(a)) — the real Bond Period
+   * start, as opposed to the MVP's graduation-day simplification. */
+  bondStartDate: Date;
+  /** The date to calculate liability as of (e.g. a planned resignation date). */
+  asOfDate: Date;
+}
+
 export interface CalculatorInputs {
   cohort: AdmissionCohort;
   category: FeeCategory;
   degree: DegreeType;
-  /** Bond years completed since graduation, integer 0-6 (spec section 1). */
+  /** Bond years completed since graduation, integer 0-6 (spec section 1).
+   * Ignored when exactBondDates is provided. */
   bondYearsCompleted: number;
   /** Semesters of study completed (1..nominalSemesters(degree)); drives the
    * disbursement-year count D, with a halved final year for odd values. */
   semestersCompleted: number;
+  /** Optional exact-date override for the pro-rata factors (Advanced toggle).
+   * When provided, replaces the integer-slider-derived NUS/MOE pro-rata
+   * factors with ones computed from real calendar dates, per each contract's
+   * own stated unit (days for NUS, months for MOE — these are NOT the same
+   * math, see proRataFactors()). Everything else (disbursement/compounding)
+   * is unaffected. */
+  exactBondDates?: ExactBondDates;
+}
+
+/** Whole days between two dates, floored — NUS's Fourth Schedule para 3 unit
+ * ("completed days served / total Bond Period"). */
+function daysBetween(start: Date, end: Date): number {
+  return Math.floor((end.getTime() - start.getTime()) / 86_400_000);
+}
+
+/** Whole completed calendar months between two dates — MOE's Tuition Grant
+ * Agreement Clause 3(4) unit ("completed months worked / Bond Period"). A
+ * standard calendar month-diff, minus 1 if the end day-of-month hasn't yet
+ * reached the start day-of-month (that final month isn't "completed" yet). */
+function monthsBetween(start: Date, end: Date): number {
+  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  if (end.getDate() < start.getDate()) months -= 1;
+  return months;
+}
+
+/** The two contracts' pro-rata reduction factors (NUS: days served / 6
+ * calendar years; MOE: months served / 36), from whichever source the
+ * caller provides — the integer bond-years slider (existing default path),
+ * or exact bond dates (Advanced toggle, opt-in). Both entry points share the
+ * same disbursement/compounding logic in nusLiquidatedDamages/moeClawback;
+ * only this final multiplier's source differs. */
+function proRataFactors(
+  bondYearsCompleted: number,
+  exactBondDates: ExactBondDates | undefined,
+): {
+  nusFraction: number;
+  moeFraction: number;
+  exactDateBreakdown?: PaybackResult["exactDateBreakdown"];
+} {
+  if (exactBondDates) {
+    const { bondStartDate, asOfDate } = exactBondDates;
+
+    // NUS: total Bond Period = 6 calendar years from bond start, computed as
+    // an actual calendar date (handles leap years correctly, no 365.25 approximation).
+    const bondEndDate = new Date(bondStartDate);
+    bondEndDate.setFullYear(bondEndDate.getFullYear() + NUS_BOND_YEARS);
+    const totalBondDays = daysBetween(bondStartDate, bondEndDate);
+    const daysServed = daysBetween(bondStartDate, asOfDate);
+    const nusFraction = Math.min(daysServed, totalBondDays) / totalBondDays;
+
+    // MOE: total Bond Period = 36 months.
+    const totalBondMonths = MOE_BOND_YEARS * 12;
+    const monthsServed = monthsBetween(bondStartDate, asOfDate);
+    const moeFraction = Math.min(monthsServed, totalBondMonths) / totalBondMonths;
+
+    return {
+      nusFraction,
+      moeFraction,
+      exactDateBreakdown: { daysServed, totalBondDays, monthsServed, totalBondMonths },
+    };
+  }
+
+  return {
+    nusFraction: Math.min(bondYearsCompleted, NUS_BOND_YEARS) / NUS_BOND_YEARS,
+    moeFraction: Math.min(bondYearsCompleted, MOE_BOND_YEARS) / MOE_BOND_YEARS,
+  };
 }
 
 /** One study-year's line-item breakdown, for the advanced/audit view. */
@@ -87,6 +166,15 @@ export interface PaybackResult {
   moeBeforeProRata: number;
   moeAfterProRata: number;
   total: number;
+  /** Set only when exact bond dates drove the pro-rata factors (Advanced
+   * toggle on), for the breakdown statement's wording. Undefined when the
+   * integer bond-years slider was used instead. */
+  exactDateBreakdown?: {
+    daysServed: number;
+    totalBondDays: number;
+    monthsServed: number;
+    totalBondMonths: number;
+  };
 }
 
 /** NUS-side annual disbursement for study-year i (spec section 3.1).
@@ -136,10 +224,12 @@ function moeDisbursement(
   return isPartialFinalYear ? gap / 2 : gap;
 }
 
-/** NUS Liquidated Damages, spec section 4. */
+/** NUS Liquidated Damages, spec section 4. `nusFraction` is the pro-rata
+ * factor already resolved by proRataFactors() — from either the integer
+ * bond-years slider or exact bond dates. */
 function nusLiquidatedDamages(
   D: number,
-  B: number,
+  nusFraction: number,
   cohort: AdmissionCohort,
   category: FeeCategory,
   degree: DegreeType,
@@ -156,17 +246,17 @@ function nusLiquidatedDamages(
   const cap = isDoubleDegree(degree) ? 295_000 : 262_000;
   const afterCap = Math.min(beforeCap, cap);
 
-  const servedFraction = Math.min(B, NUS_BOND_YEARS) / NUS_BOND_YEARS;
-  const afterProRata = afterCap * (1 - servedFraction);
+  const afterProRata = afterCap * (1 - nusFraction);
 
   return { beforeCap, afterCap, afterProRata, cap };
 }
 
 /** MOE clawback, spec section 5. See moeDisbursement() doc comment above for
- * why this stays a separate function from the NUS calculation. */
+ * why this stays a separate function from the NUS calculation. `moeFraction`
+ * is the pro-rata factor already resolved by proRataFactors(). */
 function moeClawback(
   D: number,
-  B: number,
+  moeFraction: number,
   cohort: AdmissionCohort,
   category: FeeCategory,
   hasPartialFinalSemester: boolean,
@@ -180,8 +270,7 @@ function moeClawback(
   const beforeProRata = total;
 
   // No cap found in public MOE sources (docs/policy-moe-tgs.md sec 2.3) — none applied.
-  const servedFraction = Math.min(B, MOE_BOND_YEARS) / MOE_BOND_YEARS;
-  const afterProRata = beforeProRata * (1 - servedFraction);
+  const afterProRata = beforeProRata * (1 - moeFraction);
 
   return { beforeProRata, afterProRata };
 }
@@ -189,12 +278,13 @@ function moeClawback(
 /** Full calculation, spec sections 4-7. Returns both the headline total and
  * the full per-year breakdown for the advanced/audit view. */
 export function calculatePayback(inputs: CalculatorInputs): PaybackResult {
-  const { cohort, category, degree, bondYearsCompleted, semestersCompleted } = inputs;
+  const { cohort, category, degree, bondYearsCompleted, semestersCompleted, exactBondDates } = inputs;
   const { D, hasPartialFinalSemester } = disbursementYearsFromSemesters(semestersCompleted);
   const B = bondYearsCompleted;
 
-  const nus = nusLiquidatedDamages(D, B, cohort, category, degree, hasPartialFinalSemester);
-  const moe = moeClawback(D, B, cohort, category, hasPartialFinalSemester);
+  const { nusFraction, moeFraction, exactDateBreakdown } = proRataFactors(B, exactBondDates);
+  const nus = nusLiquidatedDamages(D, nusFraction, cohort, category, degree, hasPartialFinalSemester);
+  const moe = moeClawback(D, moeFraction, cohort, category, hasPartialFinalSemester);
 
   const years: YearBreakdown[] = [];
   for (let i = 1; i <= D; i++) {
@@ -223,5 +313,6 @@ export function calculatePayback(inputs: CalculatorInputs): PaybackResult {
     moeBeforeProRata: moe.beforeProRata,
     moeAfterProRata: moe.afterProRata,
     total: nus.afterProRata + moe.afterProRata,
+    exactDateBreakdown,
   };
 }

@@ -124,6 +124,22 @@
   background: var(--bg-subtle);
 }
 
+.toggle-advanced-dates {
+  font: inherit;
+  font-size: 14px;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.toggle-advanced-dates:hover {
+  background: var(--bg-subtle);
+}
+
 .advanced h2 {
   font-size: 18px;
   margin-bottom: 4px;
