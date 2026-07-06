@@ -1,20 +1,17 @@
 import { useMemo, useState } from "react";
 import type { AdmissionCohort, FeeCategory } from "../data/tuition-fees";
-import {
-  calculatePayback,
-  nominalSemesters,
-  type DegreeType,
-} from "./calc/payback";
+import { calculatePayback, nominalSemesters } from "./calc/payback";
 import { MAJOR_GROUPS } from "./calc/majors";
 import "./App.css";
 
 const COHORTS: AdmissionCohort[] = ["AY2024/2025", "AY2025/2026", "AY2026/2027"];
 
-const DEGREES: { value: DegreeType; label: string }[] = [
-  { value: "BachelorHonours", label: "Bachelor with Honours" },
-  { value: "DoubleDegreeSingleHonours", label: "Double Degree, single Honours" },
-  { value: "DoubleDegreeDoubleHonours", label: "Double Degree, double Honours" },
-];
+// ponytail: degree is hardcoded to BachelorHonours — the major dropdown only
+// offers single-major programmes, so there's no way for a user to indicate a
+// Double Degree Programme (that needs a second-major picker, which doesn't
+// exist yet). Revisit once that picker is built; DegreeType/payback.ts keep
+// the DoubleDegree* cases fully implemented for that future work.
+const DEGREE = "BachelorHonours";
 
 const money = (n: number) =>
   n.toLocaleString("en-SG", { style: "currency", currency: "SGD", maximumFractionDigits: 2 });
@@ -100,9 +97,8 @@ function MarginalChart({ totals }: MarginalChartProps) {
 function App() {
   const [cohort, setCohort] = useState<AdmissionCohort>("AY2025/2026");
   const [major, setMajor] = useState(MAJOR_GROUPS[0].majors[3]); // Computer Science
-  const [degree, setDegree] = useState<DegreeType>("BachelorHonours");
   const [bondYears, setBondYears] = useState(0);
-  const [semestersCompleted, setSemestersCompleted] = useState(nominalSemesters("BachelorHonours"));
+  const [semestersCompleted, setSemestersCompleted] = useState(nominalSemesters(DEGREE));
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const category: FeeCategory = useMemo(() => {
@@ -110,25 +106,18 @@ function App() {
     return group ? group.category : MAJOR_GROUPS[0].category;
   }, [major]);
 
-  const maxSemesters = nominalSemesters(degree);
-
-  function handleDegreeChange(next: DegreeType) {
-    setDegree(next);
-    // Clamp/reset to the new degree's nominal max if the current value
-    // exceeds it (early-graduation slider spec).
-    setSemestersCompleted((s) => Math.min(s, nominalSemesters(next)));
-  }
+  const maxSemesters = nominalSemesters(DEGREE);
 
   const result = useMemo(
     () =>
       calculatePayback({
         cohort,
         category,
-        degree,
+        degree: DEGREE,
         bondYearsCompleted: bondYears,
         semestersCompleted,
       }),
-    [cohort, category, degree, bondYears, semestersCompleted],
+    [cohort, category, bondYears, semestersCompleted],
   );
 
   // Full B=0..6 trajectory for the marginal-savings chart, reusing
@@ -137,9 +126,9 @@ function App() {
   const totals = useMemo(
     () =>
       Array.from({ length: 7 }, (_, b) =>
-        calculatePayback({ cohort, category, degree, bondYearsCompleted: b, semestersCompleted }).total,
+        calculatePayback({ cohort, category, degree: DEGREE, bondYearsCompleted: b, semestersCompleted }).total,
       ),
-    [cohort, category, degree, semestersCompleted],
+    [cohort, category, semestersCompleted],
   );
 
   return (
@@ -177,20 +166,6 @@ function App() {
               </optgroup>
             ))}
           </select>
-        </div>
-
-        <div className="field">
-          <label htmlFor="degree">Degree type</label>
-          <select id="degree" value={degree} onChange={(e) => handleDegreeChange(e.target.value as DegreeType)}>
-            {DEGREES.map((d) => (
-              <option key={d.value} value={d.value}>
-                {d.label}
-              </option>
-            ))}
-          </select>
-          <p className="field-note">
-            This affects how many years of scholarship payments your bond math is based on.
-          </p>
         </div>
 
         <div className="field">

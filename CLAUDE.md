@@ -64,6 +64,18 @@ manually-maintained fee dataset, run entirely in the browser.
   3-year) was fully removed — it's a fallback classification outcome for
   under-performing students, not a programme anyone enrolls into, so it was
   deleted from the `DegreeType` union, not just hidden in the UI.
+- **Degree type is currently hardcoded to `BachelorHonours` in the UI —
+  deferred, not abandoned.** The "Degree type" selector was removed from
+  `src/App.tsx` because the "Major / programme" dropdown only offers
+  single-major programmes, so nobody using it can also meaningfully claim a
+  Double Degree Programme (that needs a second-major picker, which doesn't
+  exist yet). `DegreeType`, the `NOMINAL_SEMESTERS`/`NOMINAL_DURATION`
+  entries and cap-amount branching for `DoubleDegreeSingleHonours` /
+  `DoubleDegreeDoubleHonours`, and `isDoubleDegree()` all stay intact in
+  `src/calc/payback.ts` — unreachable from the UI today, but kept ready for
+  when Double Degree support is properly built (once a second-major picker
+  exists). Unlike the ASEAN decision below, this is explicit future work,
+  not a permanent removal.
 - **ASEAN nationality tier: permanently out of scope, not deferred.** The
   product owner has ruled against ever supporting ASEAN-passport students in
   this calculator. There is no `FeeTier` type, no `ISAsean` field, and no

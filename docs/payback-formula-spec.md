@@ -26,6 +26,20 @@ made are listed explicitly in section 8.
    | Double Degree, single Honours | 9 | 4.5 |
    | Double Degree, double Honours | 10 | 5 |
 
+   **Currently hardcoded to "Bachelor with Honours" in the UI, pending
+   future Double Degree Programme support.** The "Major / programme"
+   dropdown only lists single-major programmes, so there's no way for a
+   user to indicate a Double Degree Programme (which requires picking a
+   *second* major too — a picker that doesn't exist yet). Rather than show
+   a degree-type selector disconnected from what a user can actually
+   specify, the app always computes as `BachelorHonours`
+   (`src/App.tsx`) until a second-major picker is built. The `DegreeType`
+   union, both `DoubleDegree*` entries in the duration table above, and
+   all cap-amount branching in `src/calc/payback.ts` remain fully
+   implemented and tested — only the UI control was removed. This is
+   deferred work, not a scope decision (contrast with the ASEAN
+   tier, which is permanently out of scope — see `CLAUDE.md`).
+
 2. **Semesters of study completed** — an integer slider from **1 to the
    selected degree's nominal semester count**, defaulting to that nominal
    count (i.e. "completed the programme on time"). This models
@@ -33,7 +47,8 @@ made are listed explicitly in section 8.
    tuition are disbursed per-semester (half the annual amount each
    semester, confirmed in the S&T Handbook). Changing degree type clamps
    this value down to the new degree's nominal max if it would otherwise
-   exceed it. See section 2 for how this derives the disbursement-year
+   exceed it (currently always 8, since degree type is hardcoded — see
+   point 1). See section 2 for how this derives the disbursement-year
    count `D`, and section 8 assumption #5 (now resolved) for how a partial
    final semester is handled.
 
