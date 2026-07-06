@@ -2,7 +2,7 @@
  * Display-only currency conversion. The calculation engine (calc/payback.ts)
  * stays entirely in SGD — this only converts figures at render time.
  *
- * Live rates come from frankfurter.app (free, no key, CORS-ok), cached in
+ * Live rates come from api.frankfurter.dev (free, no key, CORS-ok), cached in
  * localStorage for ~12h. On fetch failure we fall back to a hardcoded
  * approximate table and flag it so the user knows the figure isn't live.
  * SGD (rate 1.0) always works with no fetch.
@@ -17,11 +17,12 @@ export type Rates = Record<Currency, number>;
 
 // ponytail: approximate fallback rates. Only used when the live fetch fails.
 // Sanity-check these against real SGD rates periodically — they will drift.
+// (Last checked 2026-07 against api.frankfurter.dev.)
 export const FALLBACK_RATES: Rates = {
   SGD: 1,
-  USD: 0.74,
-  CNY: 5.3,
-  HKD: 5.8,
+  USD: 0.775,
+  CNY: 5.25,
+  HKD: 6.08,
 };
 
 /** Locale + code shown alongside the "$" so USD/HKD/SGD (all "$") aren't
@@ -74,8 +75,13 @@ export async function loadRates(): Promise<RatesState> {
   }
 
   try {
+    // Use the canonical api.frankfurter.dev host: api.frankfurter.app now
+    // 301-redirects here, and that redirect response carries no CORS headers,
+    // so a browser blocks the cross-origin fetch before following it (live
+    // rates would silently never load). The .dev host returns
+    // access-control-allow-origin: * directly.
     const res = await fetch(
-      "https://api.frankfurter.app/latest?base=SGD&symbols=USD,CNY,HKD",
+      "https://api.frankfurter.dev/v1/latest?base=SGD&symbols=USD,CNY,HKD",
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = (await res.json()) as { date: string; rates: Record<string, number> };
