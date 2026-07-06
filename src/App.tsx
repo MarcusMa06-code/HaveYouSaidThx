@@ -99,7 +99,7 @@ function MarginalChart({ totals }: MarginalChartProps) {
 
 function App() {
   const [cohort, setCohort] = useState<AdmissionCohort>("AY2025/2026");
-  const [major, setMajor] = useState(MAJOR_GROUPS[1].majors[3]); // Computer Engineering
+  const [major, setMajor] = useState(MAJOR_GROUPS[0].majors[3]); // Computer Science
   const [degree, setDegree] = useState<DegreeType>("BachelorHonours");
   const [bondYears, setBondYears] = useState(0);
   const [semestersCompleted, setSemestersCompleted] = useState(nominalSemesters("BachelorHonours"));
