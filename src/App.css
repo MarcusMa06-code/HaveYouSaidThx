@@ -133,7 +133,7 @@
   border-radius: 6px;
   padding: 8px 16px;
   cursor: pointer;
-  align-self: flex-start;
+  align-self: center;
 }
 
 .toggle-advanced-dates:hover {
